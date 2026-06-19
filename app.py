@@ -33,7 +33,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. CSS - TEMA PINK
+# 2. CSS - TEMA PINK + NAVIGASI RADIO
 # ==========================================
 st.markdown("""
     <style>
@@ -181,38 +181,49 @@ st.markdown("""
         }
 
         /* =========================================================
-           ===== NAVIGASI TOMBOL (BLOK WARNA AKTIF) =====
+           ===== NAVIGASI RADIO (BACKGROUND PINK AKTIF) =====
            ========================================================= */
-        /* Tombol navigasi di sidebar (semua tombol) */
-        .stSidebar .stButton button {
+        /* Container radio */
+        .stRadio [role="radiogroup"] {
+            display: flex !important;
+            justify-content: center !important;
+            gap: 8px !important;
+            background: transparent !important;
+            border: none !important;
+            padding: 5px 0 !important;
+        }
+        /* Setiap label (tombol) */
+        .stRadio [role="radiogroup"] label {
+            background: transparent !important;
+            border: 2px solid transparent !important;
             width: 48px !important;
             height: 48px !important;
-            min-width: 48px !important;
-            min-height: 48px !important;
-            max-width: 48px !important;
-            max-height: 48px !important;
             border-radius: 50% !important;
-            border: none !important;
-            background: transparent !important;
-            font-size: 24px !important;
-            display: flex !important;
+            display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
+            font-size: 24px !important;
             padding: 0 !important;
-            margin: 0 auto !important;
-            box-shadow: none !important;
+            margin: 0 !important;
             transition: all 0.2s ease !important;
-            line-height: 1 !important;
+            cursor: pointer !important;
         }
-        /* Hover efek */
-        .stSidebar .stButton button:hover {
+        /* HILANGKAN BULLET RADIO */
+        .stRadio [role="radiogroup"] label .st-emotion-cache-1v0mbdj {
+            display: none !important;
+        }
+        .stRadio [role="radiogroup"] label .st-emotion-cache-1r6slb0 {
+            display: none !important;
+        }
+        /* Hover */
+        .stRadio [role="radiogroup"] label:hover {
             transform: scale(1.05) !important;
             background: rgba(236, 64, 122, 0.1) !important;
-            box-shadow: none !important;
         }
-        /* Tombol aktif: background block pink */
-        .stSidebar .stButton button.active {
+        /* AKTIF: background pink solid */
+        .stRadio [role="radiogroup"] label[data-checked="true"] {
             background: #F8BBD0 !important;
+            border-color: #F8BBD0 !important;
             box-shadow: none !important;
             transform: scale(1) !important;
         }
@@ -613,38 +624,24 @@ def halaman_deteksi():
                     """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. NAVIGASI SIDEBAR (TOMBOL BLOK WARNA)
+# 5. NAVIGASI SIDEBAR (RADIO HORIZONTAL)
 # ==========================================
 st.sidebar.markdown("🌸 **Haloo!!**")
+menu = st.sidebar.radio(
+    "",
+    ["🏠", "🌫️", "🗜️", "🔍"],
+    index=0,
+    horizontal=True,
+    key="menu_radio"
+)
 
-# Daftar menu
-menus = [
-    ("🏠", "🏠 Home"),
-    ("🌫️", "🌫️ Grayscale"),
-    ("🗜️", "🗜️ Kompresi"),
-    ("🔍", "🔍 Deteksi Kemiripan")
-]
-
-# Buat 4 kolom untuk tombol
-cols = st.sidebar.columns(4)
-
-for col, (emoji, page_name) in zip(cols, menus):
-    with col:
-        is_active = (st.session_state.page == page_name)
-        # Tombol aktif: background block pink
-        if is_active:
-            st.markdown(f"""
-                <style>
-                    .stSidebar .stButton button[data-testid="baseButton-secondary"]:has(> div:contains("{emoji}")) {{
-                        background: #F8BBD0 !important;
-                        box-shadow: none !important;
-                        border: none !important;
-                    }}
-                </style>
-            """, unsafe_allow_html=True)
-        if st.button(emoji, key=f"nav_{emoji}", use_container_width=True):
-            st.session_state.page = page_name
-            st.rerun()
+page_map = {
+    "🏠": "🏠 Home",
+    "🌫️": "🌫️ Grayscale",
+    "🗜️": "🗜️ Kompresi",
+    "🔍": "🔍 Deteksi Kemiripan"
+}
+st.session_state.page = page_map[menu]
 
 st.sidebar.markdown("---")
 if st.session_state.page == "🏠 Home":
