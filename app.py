@@ -111,8 +111,9 @@ st.markdown("""
             border-radius: 8px !important;
             padding: 20px !important;
         }
+        /* === TEKS UPLOADER JADI HITAM (ITEM) === */
         .stFileUploader * {
-            color: #6A1B4D !important;
+            color: #000000 !important;
         }
         .stFileUploader button {
             background: linear-gradient(135deg, #EC407A, #D81B60) !important;
@@ -368,7 +369,7 @@ def halaman_kompresi():
         ax.grid(True, alpha=0.3)
         st.pyplot(fig)
 
-# ---------- DETEKSI KEMIRIPAN (FITUR UTAMA) ----------
+# ---------- DETEKSI KEMIRIPAN ----------
 def halaman_deteksi():
     st.markdown('<h1 class="main-title">🔍 Deteksi Kemiripan Wajah</h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">Bandingkan dua wajah dengan metode Eigenfaces (PCA)</p>', unsafe_allow_html=True)
