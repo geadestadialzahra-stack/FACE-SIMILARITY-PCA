@@ -1,4 +1,4 @@
-# app.py - VERSI FINAL (CARD PINK UNTUK FOTO & SKOR)
+# app.py - VERSI FINAL (BADGE PINK UNTUK LABEL)
 # =====================================================
 
 import streamlit as st
@@ -122,20 +122,6 @@ st.markdown("""
         .stButton button:hover {
             transform: scale(1.03) translateY(-2px) !important;
         }
-        /* ===== CARD PINK UNTUK HASIL ===== */
-        .result-card {
-            background: linear-gradient(135deg, #FCE4EC, #FFF0F5) !important;
-            padding: 20px !important;
-            border-radius: 15px !important;
-            text-align: center !important;
-            border: 1px solid #F8BBD0 !important;
-            box-shadow: 0 4px 15px rgba(233, 30, 99, 0.1) !important;
-            height: 100% !important;
-        }
-        .result-card h3, .result-card h4 {
-            color: #AD1457 !important;
-            margin-bottom: 10px !important;
-        }
         .stMetric {
             background: rgba(255, 255, 255, 0.3) !important;
             border-radius: 12px !important;
@@ -163,6 +149,22 @@ st.markdown("""
         }
         .stWarning p {
             color: #AD1457 !important;
+        }
+        /* ===== BADGE PINK UNTUK LABEL ===== */
+        .pink-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #FCE4EC, #F8BBD0) !important;
+            color: #AD1457 !important;
+            padding: 6px 18px !important;
+            border-radius: 20px !important;
+            font-weight: bold !important;
+            font-size: 16px !important;
+            border: 1px solid #EC407A !important;
+            box-shadow: 0 2px 8px rgba(233, 30, 99, 0.15) !important;
+            margin-bottom: 10px !important;
+        }
+        .result-container {
+            text-align: center !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -320,7 +322,7 @@ if st.button("🚀 Proses Deteksi Sekarang", use_container_width=True):
             progress_bar.empty()
             
             # ==========================================
-            # 9. TAMPILKAN HASIL (DENGAN CARD PINK)
+            # 9. TAMPILKAN HASIL (BADGE PINK)
             # ==========================================
             st.markdown("---")
             st.subheader("📊 Hasil Deteksi")
@@ -328,20 +330,20 @@ if st.button("🚀 Proses Deteksi Sekarang", use_container_width=True):
             col_r1, col_r2, col_r3 = st.columns([2, 2, 1.5])
             
             with col_r1:
-                st.markdown('<div class="result-card">', unsafe_allow_html=True)
-                st.markdown("#### 📸 Foto Pertama")
+                st.markdown('<div class="result-container">', unsafe_allow_html=True)
+                st.markdown('<span class="pink-badge">📸 Foto Pertama</span>', unsafe_allow_html=True)
                 st.image(img1_color, caption=f"Resize {IMG_SIZE[0]}x{IMG_SIZE[1]}", use_container_width=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             
             with col_r2:
-                st.markdown('<div class="result-card">', unsafe_allow_html=True)
-                st.markdown("#### 📸 Foto Kedua")
+                st.markdown('<div class="result-container">', unsafe_allow_html=True)
+                st.markdown('<span class="pink-badge">📸 Foto Kedua</span>', unsafe_allow_html=True)
                 st.image(img2_color, caption=f"Resize {IMG_SIZE[0]}x{IMG_SIZE[1]}", use_container_width=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             
             with col_r3:
-                st.markdown('<div class="result-card">', unsafe_allow_html=True)
-                st.markdown("### 🎯 Skor Kemiripan")
+                st.markdown('<div class="result-container">', unsafe_allow_html=True)
+                st.markdown('<span class="pink-badge">🎯 Skor Kemiripan</span>', unsafe_allow_html=True)
                 st.markdown(f"<h1 style='color:#AD1457;font-size:42px;'>{similarity:.2%}</h1>", unsafe_allow_html=True)
                 
                 if similarity >= threshold:
