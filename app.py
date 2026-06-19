@@ -181,16 +181,9 @@ st.markdown("""
         }
 
         /* =========================================================
-           ===== NAVIGASI TOMBOL LINGKARAN =====
+           ===== NAVIGASI TOMBOL LINGKARAN (BORDER AKTIF) =====
            ========================================================= */
-        .nav-container {
-            display: flex !important;
-            justify-content: center !important;
-            gap: 10px !important;
-            padding: 5px 0 !important;
-        }
-        
-        /* Tombol navigation di sidebar */
+        /* Tombol di sidebar */
         .stSidebar .stButton button {
             width: 48px !important;
             height: 48px !important;
@@ -215,16 +208,16 @@ st.markdown("""
         /* Hover untuk semua tombol */
         .stSidebar .stButton button:hover {
             transform: scale(1.08) !important;
-            background: rgba(236, 64, 122, 0.1) !important;
+            background: rgba(236, 64, 122, 0.08) !important;
             border-color: #EC407A !important;
             box-shadow: none !important;
         }
         
-        /* Tombol aktif (akan ditandai dengan JS) */
+        /* Tombol aktif: border pink solid, background transparan */
         .stSidebar .stButton button.active {
-            background: rgba(236, 64, 122, 0.2) !important;
-            border-color: #EC407A !important;
-            box-shadow: 0 0 15px rgba(236, 64, 122, 0.15) !important;
+            border: 2px solid #EC407A !important;
+            background: transparent !important;
+            box-shadow: 0 0 15px rgba(236, 64, 122, 0.2) !important;
             transform: scale(1.05) !important;
         }
         
@@ -625,7 +618,7 @@ def halaman_deteksi():
                     """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. NAVIGASI SIDEBAR (TOMBOL LINGKARAN BULAT)
+# 5. NAVIGASI SIDEBAR (TOMBOL LINGKARAN BORDER AKTIF)
 # ==========================================
 st.sidebar.markdown("🌸 **Haloo!!**")
 
@@ -652,8 +645,8 @@ for col, (emoji, page_name) in zip(cols, menus):
             st.markdown(f"""
                 <style>
                     .stSidebar .stButton button[data-testid="baseButton-secondary"]:has(> div:contains("{emoji}")) {{
-                        background: rgba(236, 64, 122, 0.25) !important;
                         border: 2px solid #EC407A !important;
+                        background: transparent !important;
                         box-shadow: 0 0 15px rgba(236, 64, 122, 0.2) !important;
                         transform: scale(1.05) !important;
                     }}
