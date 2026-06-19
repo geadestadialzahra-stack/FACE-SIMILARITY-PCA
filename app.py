@@ -1,8 +1,7 @@
 # =====================================================
-# APLIKASI DETEKSI WAJAH & KOMPRESI GAMBAR DENGAN PCA
+# APLIKASI PCA UNTUK GRAYSCALE, KOMPRESI, DETEKSI WAJAH
 # =====================================================
-# Dibuat oleh: Kelompok 2
-# Fitur: Home, Grayscale, Kompresi, Deteksi Kemiripan
+# Kelompok 2 - Aljabar Linier / Computer Vision
 # =====================================================
 
 import streamlit as st
@@ -12,12 +11,21 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import cosine_similarity
-from skimage.metrics import structural_similarity as ssim
-from skimage.metrics import peak_signal_noise_ratio as psnr
 import time
 
 # ==========================================
-# 1. PENGATURAN HALAMAN & CSS
+# IMPOR SKIMAGE (jika ada) untuk SSIM & PSNR
+# ==========================================
+try:
+    from skimage.metrics import structural_similarity as ssim
+    from skimage.metrics import peak_signal_noise_ratio as psnr
+    SKIMAGE_AVAILABLE = True
+except ImportError:
+    SKIMAGE_AVAILABLE = False
+    st.warning("⚠️ Library 'scikit-image' tidak terinstall. Fitur kompresi akan berjalan tanpa SSIM & PSNR. Tambahkan 'scikit-image' ke requirements.txt untuk metrik lengkap.")
+
+# ==========================================
+# 1. PENGATURAN HALAMAN
 # ==========================================
 st.set_page_config(
     page_title="PCA Face App",
@@ -25,7 +33,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# CSS tema pink soft (sama seperti sebelumnya)
+# ==========================================
+# 2. CSS - TEMA PINK SOFT
+# ==========================================
 st.markdown("""
     <style>
         .stApp, .main, .block-container, section.main, div[data-testid="stSidebar"] {
@@ -156,24 +166,48 @@ st.markdown("""
         .explanation-box b {
             color: #AD1457 !important;
         }
-        /* Sidebar radio button styling */
-        .stRadio label {
-            font-size: 18px !important;
-            padding: 8px 12px !important;
-            border-radius: 10px !important;
+        /* ===== SIDEBAR EMOJI BUTTON ===== */
+        .stSidebar .stButton button {
+            background: transparent !important;
+            border: 2px solid #EC407A !important;
+            border-radius: 12px !important;
+            font-size: 28px !important;
+            padding: 6px 0 !important;
+            color: #EC407A !important;
+            box-shadow: none !important;
             transition: 0.3s !important;
+            width: 100% !important;
+            min-height: 55px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
         }
-        .stRadio label:hover {
-            background: rgba(236, 64, 122, 0.1) !important;
+        .stSidebar .stButton button:hover {
+            transform: scale(1.05) !important;
+            background: rgba(236, 64, 122, 0.15) !important;
+            border-color: #D81B60 !important;
+            box-shadow: 0 0 15px rgba(236, 64, 122, 0.2) !important;
         }
-        .stRadio label[data-baseweb="radio"] {
-            margin-bottom: 5px !important;
+        .stSidebar .stButton button:active {
+            transform: scale(0.95) !important;
+        }
+        /* Aktif (selected) */
+        .stSidebar .stButton button.selected {
+            background: rgba(236, 64, 122, 0.2) !important;
+            border-color: #D81B60 !important;
+            box-shadow: 0 0 20px rgba(236, 64, 122, 0.3) !important;
         }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. FUNGSI-FUNGSI FITUR
+# 3. SESSION STATE UNTUK NAVIGASI
+# ==========================================
+if "page" not in st.session_state:
+    st.session_state.page = "🏠 Home"
+
+# ==========================================
+# 4. FUNGSI HALAMAN
 # ==========================================
 
 # ---------- Home ----------
@@ -193,7 +227,7 @@ def halaman_home():
             <li><b>🗜️ Kompresi</b> – Mengompresi gambar dengan PCA, menampilkan SSIM, PSNR, dan rasio kompresi</li>
             <li><b>🔍 Deteksi Kemiripan</b> – Membandingkan dua wajah menggunakan Eigenfaces</li>
         </ul>
-        Gunakan menu di samping untuk memilih fitur.
+        Gunakan menu emoji di samping untuk memilih fitur.
         </div>
         """, unsafe_allow_html=True)
     
@@ -217,13 +251,13 @@ def halaman_grayscale():
     file = st.file_uploader("Upload gambar (JPG/PNG)", type=["jpg", "jpeg", "png"])
     if file is not None:
         img = Image.open(file)
-        st.image(img, caption="Gambar Asli (Berwarna)", use_container_width=True, width=400)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.image(img, caption="Gambar Asli (Berwarna)", use_container_width=True)
+        with col2:
+            gray = img.convert("L")
+            st.image(gray, caption="Hasil Grayscale", use_container_width=True)
         
-        # Konversi ke grayscale
-        gray = img.convert("L")
-        st.image(gray, caption="Hasil Grayscale", use_container_width=True, width=400)
-        
-        # Tampilkan informasi
         st.markdown(f"""
         <div class="explanation-box">
         <b>Informasi:</b><br>
@@ -239,58 +273,45 @@ def halaman_kompresi():
     
     file = st.file_uploader("Upload gambar (JPG/PNG)", type=["jpg", "jpeg", "png"])
     if file is not None:
-        # Baca gambar dan ubah ke grayscale
         img = Image.open(file).convert("L")
         img_np = np.array(img, dtype=np.float64)
         h, w = img_np.shape
         
-        # Resize agar proses cepat (opsional, tapi kita biarkan sesuai ukuran asli)
-        # Kita gunakan ukuran asli, tapi jika terlalu besar, kita resize ke 256x256 agar cepat
+        # Resize jika terlalu besar agar proses cepat
         if h > 300 or w > 300:
             st.warning("Gambar terlalu besar, akan di-resize ke 256x256 agar proses cepat")
             img_resized = img.resize((256, 256))
             img_np = np.array(img_resized, dtype=np.float64)
             h, w = img_np.shape
         
-        # Flatten
-        img_vec = img_np.flatten()
-        
-        # Slider untuk jumlah komponen PCA (k)
-        k_max = min(h, w)  # maksimum komponen = min(h,w)
+        k_max = min(h, w)
         k = st.slider("Jumlah komponen PCA (k)", min_value=1, max_value=k_max, value=min(50, k_max), step=1)
         
-        # --- Lakukan PCA ---
-        # Kita buat matriks data: karena hanya 1 gambar, kita perlu membuat data sintetis? 
-        # PCA standar membutuhkan banyak sampel. Untuk kompresi gambar, kita bisa menggunakan PCA pada baris atau kolom.
-        # Cara paling sederhana: kita gunakan PCA pada matriks gambar (setiap baris sebagai sampel).
-        # Tapi untuk gambar, biasanya kita gunakan PCA pada kolom atau baris untuk kompresi.
-        # Saya akan gunakan pendekatan: matriks gambar (h x w), kita lakukan PCA pada kolom (seperti contoh di PDF).
-        # Centering per kolom
+        # --- PCA untuk kompresi ---
         mean_col = np.mean(img_np, axis=0)
         centered = img_np - mean_col
-        # Hitung kovarians
         cov = np.cov(centered, rowvar=False)
         eigen_vals, eigen_vecs = np.linalg.eigh(cov)
-        # Urutkan descending
         idx = np.argsort(eigen_vals)[::-1]
         eigen_vals = eigen_vals[idx]
         eigen_vecs = eigen_vecs[:, idx]
-        # Pilih k komponen
         Vk = eigen_vecs[:, :k]
-        # Proyeksi
         proj = centered @ Vk
-        # Rekonstruksi
         rekon = proj @ Vk.T + mean_col
         rekon = np.clip(rekon, 0, 255).astype(np.uint8)
         
-        # Hitung metrik kualitas (SSIM, PSNR)
+        # Metrik
         img_uint8 = img_np.astype(np.uint8)
-        ssim_val = ssim(img_uint8, rekon, data_range=255)
-        psnr_val = psnr(img_uint8, rekon, data_range=255)
+        if SKIMAGE_AVAILABLE:
+            ssim_val = ssim(img_uint8, rekon, data_range=255)
+            psnr_val = psnr(img_uint8, rekon, data_range=255)
+        else:
+            ssim_val = "Tidak tersedia"
+            psnr_val = "Tidak tersedia"
         
         # Rasio kompresi
         original_size = h * w
-        compressed_size = h * k + w * k  # proyeksi + eigenvector (approksimasi)
+        compressed_size = h * k + w * k  # aproksimasi
         compression_ratio = compressed_size / original_size
         saving = (1 - compression_ratio) * 100
         
@@ -304,8 +325,8 @@ def halaman_kompresi():
         # Metrik
         st.markdown("### 📊 Metrik Kualitas")
         metrik_col1, metrik_col2, metrik_col3 = st.columns(3)
-        metrik_col1.metric("SSIM", f"{ssim_val:.4f}")
-        metrik_col2.metric("PSNR", f"{psnr_val:.2f} dB")
+        metrik_col1.metric("SSIM", f"{ssim_val:.4f}" if isinstance(ssim_val, float) else ssim_val)
+        metrik_col2.metric("PSNR", f"{psnr_val:.2f} dB" if isinstance(psnr_val, float) else psnr_val)
         metrik_col3.metric("Penghematan", f"{saving:.1f}%")
         
         # Detail tambahan
@@ -333,17 +354,14 @@ def halaman_kompresi():
         ax.grid(True, alpha=0.3)
         st.pyplot(fig)
 
-# ---------- Deteksi Kemiripan (fitur lama) ----------
+# ---------- Deteksi Kemiripan ----------
 def halaman_deteksi():
     st.markdown('<h1 class="main-title">🔍 Deteksi Kemiripan Wajah</h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">Bandingkan dua wajah dengan metode Eigenfaces (PCA)</p>', unsafe_allow_html=True)
     
-    # Inisialisasi session state untuk toggle upload (agar kompatibel dengan kode lama)
     if "show_upload" not in st.session_state:
         st.session_state.show_upload = True
     
-    # Sidebar untuk upload data latih (kita pindahkan ke dalam halaman ini, tapi agar tidak bentrok dengan navigasi utama, kita buat di dalam halaman)
-    # Karena navigasi sudah di sidebar, kita akan tempatkan upload data latih di dalam konten utama dengan expander.
     with st.expander("📂 Upload Data Latih (minimal 10 foto)", expanded=st.session_state.show_upload):
         file_latih = st.file_uploader(
             "Pilih minimal 10 foto wajah (2 orang, masing-masing 5+ foto)",
@@ -356,14 +374,12 @@ def halaman_deteksi():
         else:
             st.warning("⬆️ Upload foto di sini")
     
-    # Upload dua foto uji
     col1, col2 = st.columns(2)
     with col1:
         file1 = st.file_uploader("Foto Pertama", type=["jpg","jpeg","png"], key="f1_deteksi")
     with col2:
         file2 = st.file_uploader("Foto Kedua", type=["jpg","jpeg","png"], key="f2_deteksi")
     
-    # Slider threshold
     ambang = st.slider("🎯 Ambang Batas Kemiripan", 0.0, 1.0, 0.70, 0.05, key="threshold_deteksi")
     
     if st.button("🚀 Proses Deteksi", use_container_width=True):
@@ -375,7 +391,6 @@ def halaman_deteksi():
             with st.spinner("⏳ Memproses..."):
                 time.sleep(0.5)
                 
-                # Fungsi preprocessing (sama seperti sebelumnya)
                 def deteksi_dan_potong_wajah(byte_gambar):
                     arr_np = np.frombuffer(byte_gambar, np.uint8)
                     img = cv2.imdecode(arr_np, cv2.IMREAD_COLOR)
@@ -412,7 +427,6 @@ def halaman_deteksi():
                         resize = cv2.resize(img, ukuran)
                         return cv2.cvtColor(resize, cv2.COLOR_BGR2RGB)
                 
-                # Proses data latih
                 UKURAN = (100, 100)
                 X_latih = []
                 progress = st.progress(0)
@@ -422,12 +436,10 @@ def halaman_deteksi():
                     progress.progress((i+1)/len(file_latih))
                 X_latih = np.array(X_latih)
                 
-                # PCA
                 k = min(50, len(X_latih)-1) if len(X_latih)>1 else 1
                 pca = PCA(n_components=k)
                 pca.fit(X_latih)
                 
-                # Proses foto uji
                 v1, _, _ = praproses(file1.getvalue(), UKURAN)
                 v2, _, _ = praproses(file2.getvalue(), UKURAN)
                 img1_warna = muat_warna(file1.getvalue(), UKURAN)
@@ -439,7 +451,6 @@ def halaman_deteksi():
                 
                 progress.empty()
                 
-                # Tampilkan hasil
                 st.markdown("---")
                 st.subheader("📊 Hasil Deteksi")
                 col_r1, col_r2, col_r3 = st.columns([2, 2, 1.5])
@@ -468,7 +479,6 @@ def halaman_deteksi():
                     st.caption(f"Varians: {np.sum(pca.explained_variance_ratio_)*100:.1f}%")
                     st.markdown('</div>', unsafe_allow_html=True)
                 
-                # Grafik akumulasi varians
                 st.subheader("📈 Grafik Akumulasi Informasi")
                 varians = np.cumsum(pca.explained_variance_ratio_)
                 fig, ax = plt.subplots(figsize=(8, 4))
@@ -483,23 +493,48 @@ def halaman_deteksi():
                 st.pyplot(fig)
 
 # ==========================================
-# 3. NAVIGASI SIDEBAR (IKON)
+# 5. NAVIGASI SIDEBAR (EMOJI 1 BARIS)
 # ==========================================
-st.sidebar.markdown("## 🌸 Pilih Fitur")
-menu = st.sidebar.radio(
-    "",
-    ["🏠 Home", "🌫️ Grayscale", "🗜️ Kompresi", "🔍 Deteksi Kemiripan"],
-    index=0
-)
+st.sidebar.markdown("## 🌸")
+col1, col2, col3, col4 = st.sidebar.columns(4)
+
+with col1:
+    if st.button("🏠", key="home", use_container_width=True):
+        st.session_state.page = "🏠 Home"
+        st.rerun()
+with col2:
+    if st.button("🌫️", key="grayscale", use_container_width=True):
+        st.session_state.page = "🌫️ Grayscale"
+        st.rerun()
+with col3:
+    if st.button("🗜️", key="kompresi", use_container_width=True):
+        st.session_state.page = "🗜️ Kompresi"
+        st.rerun()
+with col4:
+    if st.button("🔍", key="deteksi", use_container_width=True):
+        st.session_state.page = "🔍 Deteksi Kemiripan"
+        st.rerun()
+
+# Keterangan fitur di bawah emoji
+st.sidebar.markdown("---")
+if st.session_state.page == "🏠 Home":
+    st.sidebar.caption("📌 Beranda & Profil")
+elif st.session_state.page == "🌫️ Grayscale":
+    st.sidebar.caption("🌫️ Ubah ke hitam-putih")
+elif st.session_state.page == "🗜️ Kompresi":
+    st.sidebar.caption("🗜️ Kompresi dengan PCA")
+elif st.session_state.page == "🔍 Deteksi Kemiripan":
+    st.sidebar.caption("🔍 Bandingkan dua wajah")
 
 # ==========================================
-# 4. TAMPILKAN HALAMAN SESUAI PILIHAN
+# 6. TAMPILKAN HALAMAN SESUAI SESSION STATE
 # ==========================================
-if menu == "🏠 Home":
+page = st.session_state.page
+if page == "🏠 Home":
     halaman_home()
-elif menu == "🌫️ Grayscale":
+elif page == "🌫️ Grayscale":
     halaman_grayscale()
-elif menu == "🗜️ Kompresi":
+elif page == "🗜️ Kompresi":
     halaman_kompresi()
-elif menu == "🔍 Deteksi Kemiripan":
+elif page == "🔍 Deteksi Kemiripan":
     halaman_deteksi()
