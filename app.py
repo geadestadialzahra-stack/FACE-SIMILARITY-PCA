@@ -1,4 +1,4 @@
-# app.py - VERSI FINAL (LABEL FOTO DI DALAM CARD)
+# app.py - VERSI FINAL (LABEL FOTO DI DALAM CARD + KATEGORI CUKUP MIRIP)
 # =====================================================
 
 import streamlit as st
@@ -150,10 +150,18 @@ st.markdown("""
         .stPlotlyChart, .stMatplotlib {
             background: transparent !important;
         }
-        /* LABEL FOTO DI DALAM CARD */
         .result-card h4, .result-card h3, .result-card h2 {
             color: #AD1457 !important;
             margin-bottom: 8px !important;
+        }
+        /* WARNA UNTUK KATEGORI CUKUP MIRIP */
+        .stWarning {
+            background-color: rgba(255, 193, 7, 0.15) !important;
+            border-radius: 12px !important;
+            padding: 5px !important;
+        }
+        .stWarning p {
+            color: #AD1457 !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -311,7 +319,7 @@ if st.button("🚀 Proses Deteksi Sekarang", use_container_width=True):
             progress_bar.empty()
             
             # ==========================================
-            # 9. TAMPILKAN HASIL (LABEL DI DALAM CARD)
+            # 9. TAMPILKAN HASIL (LABEL DI DALAM CARD + KATEGORI CUKUP MIRIP)
             # ==========================================
             st.markdown("---")
             st.subheader("📊 Hasil Deteksi")
@@ -335,9 +343,12 @@ if st.button("🚀 Proses Deteksi Sekarang", use_container_width=True):
                 st.markdown("### 🎯 Skor Kemiripan")
                 st.markdown(f"<h1 style='color:#AD1457;font-size:42px;'>{similarity:.2%}</h1>", unsafe_allow_html=True)
                 
+                # ===== LOGIKA KATEGORI =====
                 if similarity >= threshold:
                     st.success("✅ **MIRIP**")
                     st.balloons()
+                elif similarity >= 0.50:
+                    st.warning("⚠️ **CUKUP MIRIP**")
                 else:
                     st.error("❌ **TIDAK MIRIP**")
                 
