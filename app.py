@@ -1,4 +1,4 @@
-# app.py - VERSI FINAL (SEMUA WARNA PINK)
+# app.py - VERSI FINAL (BACKGROUND UPLOADER PINK)
 # =====================================================
 
 import streamlit as st
@@ -11,7 +11,7 @@ import cv2
 import time
 
 # ==========================================
-# 1. PENGATURAN HALAMAN
+# 1. PENGATURAN HALAMAN & CSS
 # ==========================================
 st.set_page_config(
     page_title="PCA Face Similarity",
@@ -57,7 +57,7 @@ st.markdown("""
             text-shadow: 0 1px 10px rgba(216, 27, 96, 0.15) !important;
         }
         
-        /* ===== UBAH SEMUA HEADING JADI PINK ===== */
+        /* ===== SEMUA HEADING JADI PINK ===== */
         h1, h2, h3, h4, h5, h6 {
             color: #AD1457 !important;
         }
@@ -74,37 +74,62 @@ st.markdown("""
             font-weight: bold !important;
         }
         
-        /* ===== FILE UPLOADER (BORDER & TEKS) ===== */
+        /* =========================================================
+           ===== FILE UPLOADER (BACKGROUND + BORDER + TEKS) =====
+           ========================================================= */
+        
+        /* Container utama file uploader */
         .stFileUploader {
-            background: rgba(255, 255, 255, 0.5) !important;
+            background: linear-gradient(135deg, #FCE4EC, #FFF0F5) !important;
             border-radius: 12px !important;
             border: 2px dashed #EC407A !important;
-            backdrop-filter: blur(5px) !important;
-            color: #6A1B4D !important;
-        }
-        .stFileUploader:hover {
-            border-color: #D81B60 !important;
-            background: rgba(255, 255, 255, 0.8) !important;
+            padding: 10px !important;
         }
         
-        /* ===== TEKS DI DALAM FILE UPLOADER ===== */
-        .stFileUploader label, .stFileUploader div, .stFileUploader span {
-            color: #6A1B4D !important;
+        /* Background area drop zone */
+        .stFileUploader > div {
+            background: rgba(255, 255, 255, 0.4) !important;
+            border-radius: 8px !important;
+            padding: 15px !important;
         }
-        .stFileUploader .st-emotion-cache-1v0mbdj {
+        
+        /* Teks di dalam file uploader */
+        .stFileUploader label, .stFileUploader div, .stFileUploader span, .stFileUploader p {
             color: #6A1B4D !important;
         }
         
-        /* ===== TOMBOL UPLOAD (yang "Browse files") ===== */
+        /* Tulisan "Upload" besar */
+        .stFileUploader .st-emotion-cache-1v0mbdj, .stFileUploader .st-bb {
+            color: #6A1B4D !important;
+            font-weight: bold !important;
+        }
+        
+        /* Tulisan "200MB per file · JPG, PNG" */
+        .stFileUploader .st-emotion-cache-1r6slb0, .stFileUploader .st-at {
+            color: #8B4A6D !important;
+        }
+        
+        /* Tombol "Browse files" di file uploader */
         .stFileUploader button {
             background: linear-gradient(135deg, #EC407A, #D81B60) !important;
             color: white !important;
             border-radius: 20px !important;
             border: none !important;
             padding: 5px 20px !important;
+            transition: 0.3s !important;
         }
         .stFileUploader button:hover {
             transform: scale(1.05) !important;
+            box-shadow: 0 4px 15px rgba(233, 30, 99, 0.3) !important;
+        }
+        
+        /* Hover effect pada area upload */
+        .stFileUploader:hover {
+            border-color: #D81B60 !important;
+            background: linear-gradient(135deg, #F8BBD0, #FCE4EC) !important;
+        }
+        .stFileUploader:hover > div {
+            background: rgba(255, 255, 255, 0.6) !important;
         }
         
         /* ===== TOMBOL SAKURA DI SIDEBAR ===== */
@@ -166,6 +191,11 @@ st.markdown("""
             background: rgba(255, 255, 255, 0.3) !important;
             border-radius: 12px !important;
             padding: 10px !important;
+        }
+        
+        /* ===== SUCCESS / WARNING / ERROR ===== */
+        .stAlert {
+            border-radius: 12px !important;
         }
     </style>
 """, unsafe_allow_html=True)
