@@ -33,7 +33,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. CSS - TEMA PINK + TOMBOL LINGKARAN
+# 2. CSS - TEMA PINK + NAVIGASI RADIO (BORDER AKTIF)
 # ==========================================
 st.markdown("""
     <style>
@@ -181,46 +181,50 @@ st.markdown("""
         }
 
         /* =========================================================
-           ===== NAVIGASI TOMBOL LINGKARAN (BORDER AKTIF) =====
+           ===== NAVIGASI RADIO (BORDER AKTIF) =====
            ========================================================= */
-        /* Tombol di sidebar */
-        .stSidebar .stButton button {
+        .stRadio [role="radiogroup"] {
+            display: flex !important;
+            justify-content: center !important;
+            gap: 10px !important;
+            background: transparent !important;
+            border: none !important;
+            padding: 5px 0 !important;
+        }
+        .stRadio [role="radiogroup"] label {
+            background: transparent !important;
+            border: 2px solid transparent !important;
             width: 48px !important;
             height: 48px !important;
-            min-width: 48px !important;
-            min-height: 48px !important;
-            max-width: 48px !important;
-            max-height: 48px !important;
             border-radius: 50% !important;
-            border: 2px solid transparent !important;
-            background: transparent !important;
-            font-size: 22px !important;
-            display: flex !important;
+            display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
+            font-size: 24px !important;
             padding: 0 !important;
-            margin: 0 auto !important;
-            box-shadow: none !important;
+            margin: 0 !important;
             transition: all 0.3s ease !important;
-            line-height: 1 !important;
+            cursor: pointer !important;
         }
-        
-        /* Hover untuk semua tombol */
-        .stSidebar .stButton button:hover {
+        /* Hilangkan bullet radio */
+        .stRadio [role="radiogroup"] label .st-emotion-cache-1v0mbdj {
+            display: none !important;
+        }
+        .stRadio [role="radiogroup"] label .st-emotion-cache-1r6slb0 {
+            display: none !important;
+        }
+        /* Hover */
+        .stRadio [role="radiogroup"] label:hover {
             transform: scale(1.08) !important;
-            background: rgba(236, 64, 122, 0.08) !important;
-            border-color: #EC407A !important;
-            box-shadow: none !important;
+            border-color: rgba(236, 64, 122, 0.3) !important;
         }
-        
-        /* Tombol aktif: border pink solid, background transparan */
-        .stSidebar .stButton button.active {
-            border: 2px solid #EC407A !important;
+        /* Aktif: border pink solid + glow */
+        .stRadio [role="radiogroup"] label[data-checked="true"] {
+            border-color: #EC407A !important;
             background: transparent !important;
-            box-shadow: 0 0 15px rgba(236, 64, 122, 0.2) !important;
+            box-shadow: 0 0 15px rgba(236, 64, 122, 0.3) !important;
             transform: scale(1.05) !important;
         }
-        
         .sidebar-caption {
             text-align: center;
             color: #AD1457;
@@ -618,40 +622,24 @@ def halaman_deteksi():
                     """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. NAVIGASI SIDEBAR (TOMBOL LINGKARAN BORDER AKTIF)
+# 5. NAVIGASI SIDEBAR (RADIO HORIZONTAL - BORDER AKTIF)
 # ==========================================
 st.sidebar.markdown("🌸 **Haloo!!**")
+menu = st.sidebar.radio(
+    "",
+    ["🏠", "🌫️", "🗜️", "🔍"],
+    index=0,
+    horizontal=True,
+    key="menu_radio"
+)
 
-# Daftar menu
-menus = [
-    ("🏠", "🏠 Home"),
-    ("🌫️", "🌫️ Grayscale"),
-    ("🗜️", "🗜️ Kompresi"),
-    ("🔍", "🔍 Deteksi Kemiripan")
-]
-
-# Buat 4 kolom untuk tombol
-cols = st.sidebar.columns(4)
-
-for col, (emoji, page_name) in zip(cols, menus):
-    with col:
-        is_active = (st.session_state.page == page_name)
-        # Tombol
-        if st.button(emoji, key=f"nav_{emoji}", use_container_width=True):
-            st.session_state.page = page_name
-            st.rerun()
-        # Tandai tombol aktif dengan CSS via markdown
-        if is_active:
-            st.markdown(f"""
-                <style>
-                    .stSidebar .stButton button[data-testid="baseButton-secondary"]:has(> div:contains("{emoji}")) {{
-                        border: 2px solid #EC407A !important;
-                        background: transparent !important;
-                        box-shadow: 0 0 15px rgba(236, 64, 122, 0.2) !important;
-                        transform: scale(1.05) !important;
-                    }}
-                </style>
-            """, unsafe_allow_html=True)
+page_map = {
+    "🏠": "🏠 Home",
+    "🌫️": "🌫️ Grayscale",
+    "🗜️": "🗜️ Kompresi",
+    "🔍": "🔍 Deteksi Kemiripan"
+}
+st.session_state.page = page_map[menu]
 
 st.sidebar.markdown("---")
 if st.session_state.page == "🏠 Home":
