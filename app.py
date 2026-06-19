@@ -14,7 +14,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import time
 
 # ==========================================
-# IMPOR SKIMAGE (jika ada) untuk SSIM & PSNR
+# IMPOR SKIMAGE (jika ada)
 # ==========================================
 try:
     from skimage.metrics import structural_similarity as ssim
@@ -33,22 +33,18 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. CSS - TEMA PINK SOFT + EFEK BUNGA SAKURA PADA EMOJI AKTIF
+# 2. CSS - TEMA PINK + EFEK SAKURA
 # ==========================================
 st.markdown("""
     <style>
-        /* ===== BACKGROUND UTAMA ===== */
+        /* ===== BACKGROUND ===== */
         .stApp, .main, .block-container, section.main, div[data-testid="stSidebar"] {
             background-color: #FFF0F5 !important;
             background-image: none !important;
         }
-        
-        /* ===== SEMUA TEKS ===== */
         body, p, div, span, label, h1, h2, h3, h4, h5, h6, .stMarkdown, .stText, .stCaption {
             color: #6A1B4D !important;
         }
-        
-        /* ===== HEADER (BAR ATAS) ===== */
         header {
             background: linear-gradient(135deg, #880E4F, #AD1457) !important;
             border-bottom: 2px solid #F8BBD0 !important;
@@ -61,21 +57,10 @@ st.markdown("""
             color: #FFFFFF !important;
             fill: #FFFFFF !important;
         }
-        header .st-emotion-cache-1v0mbdj, header .st-emotion-cache-1r6slb0 {
-            color: #FFFFFF !important;
-        }
-        header button:hover {
-            transform: scale(1.05) !important;
-            transition: 0.3s !important;
-        }
-        
-        /* ===== SIDEBAR ===== */
         .css-1d391kg, .css-12w0qpk, [data-testid="stSidebar"] {
             background: linear-gradient(180deg, #FCE4EC, #FFF0F5) !important;
             border-right: 2px solid #F8BBD0 !important;
         }
-        
-        /* ===== JUDUL UTAMA (DI TENGAH) ===== */
         .main-title {
             text-align: center !important;
             color: #AD1457 !important;
@@ -97,7 +82,7 @@ st.markdown("""
             color: #AD1457 !important;
             font-weight: bold !important;
         }
-        
+
         /* ===== TOMBOL ===== */
         .stButton button {
             background: linear-gradient(135deg, #EC407A, #D81B60) !important;
@@ -113,59 +98,43 @@ st.markdown("""
             transform: scale(1.03) translateY(-2px) !important;
             box-shadow: 0 8px 25px rgba(233, 30, 99, 0.4) !important;
         }
-        
+
         /* ===== FILE UPLOADER ===== */
-        div[data-testid="stFileUploader"],
-        .stFileUploader,
-        .st-emotion-cache-1v0mbdj,
-        .st-emotion-cache-1r6slb0,
-        .st-emotion-cache-1wmy9hl {
+        div[data-testid="stFileUploader"] {
             background: linear-gradient(135deg, #FCE4EC, #FFF0F5) !important;
             border: 2px dashed #EC407A !important;
             border-radius: 12px !important;
             padding: 10px !important;
         }
-        div[data-testid="stFileUploader"] > div,
-        .stFileUploader > div {
+        div[data-testid="stFileUploader"] > div {
             background: rgba(255, 255, 255, 0.6) !important;
             border-radius: 8px !important;
             padding: 20px !important;
         }
-        div[data-testid="stFileUploader"] *,
-        .stFileUploader * {
+        div[data-testid="stFileUploader"] * {
             color: #6A1B4D !important;
             background: transparent !important;
         }
-        div[data-testid="stFileUploader"] button,
-        .stFileUploader button {
+        div[data-testid="stFileUploader"] button {
             background: linear-gradient(135deg, #EC407A, #D81B60) !important;
             color: white !important;
             border: none !important;
             border-radius: 20px !important;
             padding: 5px 20px !important;
-            transition: 0.3s !important;
         }
-        div[data-testid="stFileUploader"] button:hover,
-        .stFileUploader button:hover {
+        div[data-testid="stFileUploader"] button:hover {
             transform: scale(1.05) !important;
-            box-shadow: 0 4px 15px rgba(233, 30, 99, 0.3) !important;
         }
-        div[data-testid="stFileUploader"]:hover,
-        .stFileUploader:hover {
+        div[data-testid="stFileUploader"]:hover {
             border-color: #D81B60 !important;
-            background: linear-gradient(135deg, #F8BBD0, #FCE4EC) !important;
         }
-        div[data-testid="stFileUploader"]:hover > div,
-        .stFileUploader:hover > div {
-            background: rgba(255, 255, 255, 0.8) !important;
-        }
-        
+
         /* ===== SLIDER ===== */
         .stSlider > div {
             background: rgba(255, 255, 255, 0.4) !important;
             border-radius: 10px !important;
         }
-        
+
         /* ===== BADGE ===== */
         .pink-badge {
             display: block !important;
@@ -184,8 +153,6 @@ st.markdown("""
         .result-container {
             text-align: center !important;
         }
-        
-        /* ===== CARD HASIL ===== */
         .result-card {
             background: linear-gradient(135deg, #FCE4EC, #FFF0F5) !important;
             padding: 20px !important;
@@ -195,8 +162,6 @@ st.markdown("""
             box-shadow: 0 4px 15px rgba(233, 30, 99, 0.1) !important;
             height: 100% !important;
         }
-        
-        /* ===== EXPLANATION BOX ===== */
         .explanation-box {
             background: rgba(255, 255, 255, 0.5) !important;
             padding: 15px !important;
@@ -214,75 +179,71 @@ st.markdown("""
         .explanation-box li {
             margin-bottom: 6px !important;
         }
-        
+
         /* =========================================================
-           ===== NAVIGASI EMOJI DENGAN BUNGA SAKURA DI BELAKANG =====
+           ===== NAVIGASI EMOJI DENGAN SAKURA DI BELAKANG =====
            ========================================================= */
-        .stRadio [role="radiogroup"] {
+        /* Container untuk 4 tombol emoji */
+        .emoji-nav {
             display: flex !important;
             justify-content: center !important;
-            gap: 12px !important;
-            background: transparent !important;
-            border: none !important;
+            gap: 20px !important;
             padding: 10px 0 !important;
+            background: transparent !important;
         }
-        .stRadio [role="radiogroup"] label {
+        /* Setiap tombol emoji */
+        .emoji-btn {
             background: transparent !important;
             border: none !important;
-            padding: 6px !important;
             font-size: 32px !important;
-            transition: all 0.3s ease !important;
+            padding: 10px !important;
             cursor: pointer !important;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+            position: relative !important;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            min-width: 55px !important;
-            min-height: 55px !important;
-            text-align: center !important;
-            position: relative !important;
+            min-width: 60px !important;
+            min-height: 60px !important;
+            border-radius: 50% !important;
             z-index: 1 !important;
         }
-        /* Hilangkan bullet radio */
-        .stRadio [role="radiogroup"] label .st-emotion-cache-1v0mbdj {
-            display: none !important;
+        /* Hover efek */
+        .emoji-btn:hover {
+            transform: scale(1.2) rotate(8deg) !important;
         }
-        .stRadio [role="radiogroup"] label .st-emotion-cache-1r6slb0 {
-            display: none !important;
-        }
-        /* Hover effect */
-        .stRadio [role="radiogroup"] label:hover {
-            transform: scale(1.2) rotate(5deg) !important;
-        }
-        /* ===== BUNGA SAKURA DI BELAKANG EMOJI AKTIF ===== */
-        .stRadio [role="radiogroup"] label[data-checked="true"] {
-            font-size: 38px !important;
+        /* ===== EFEK SAKURA DI BELAKANG EMOJI AKTIF ===== */
+        .emoji-btn.active {
+            font-size: 40px !important;
             transform: scale(1) !important;
             z-index: 2 !important;
-            animation: sakuraPulse 2s ease-in-out infinite !important;
         }
-        .stRadio [role="radiogroup"] label[data-checked="true"]::before {
+        /* Siluet bunga sakura (background) */
+        .emoji-btn.active::before {
             content: "🌸" !important;
             position: absolute !important;
-            font-size: 80px !important;
-            opacity: 0.35 !important;
+            font-size: 85px !important;
+            opacity: 0.5 !important;
             color: #EC407A !important;
             z-index: -1 !important;
-            animation: sakuraSpin 6s linear infinite !important;
             top: 50% !important;
             left: 50% !important;
             transform: translate(-50%, -50%) !important;
+            animation: sakuraSpin 6s linear infinite !important;
         }
-        /* Animasi denyut */
-        @keyframes sakuraPulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.08); }
-            100% { transform: scale(1); }
-        }
-        /* Animasi putar bunga */
+        /* Animasi putar sakura */
         @keyframes sakuraSpin {
             0% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
-            50% { transform: translate(-50%, -50%) rotate(10deg) scale(1.05); }
+            50% { transform: translate(-50%, -50%) rotate(8deg) scale(1.05); }
             100% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+        }
+        /* Caption di bawah */
+        .sidebar-caption {
+            text-align: center;
+            color: #AD1457;
+            font-weight: bold;
+            font-size: 15px;
+            padding-top: 5px;
         }
         
         /* ===== SAKURA BUTTON DI SIDEBAR ===== */
@@ -305,15 +266,6 @@ st.markdown("""
             transform: scale(1.1) rotate(15deg) !important;
             background: rgba(236, 64, 122, 0.2) !important;
             box-shadow: 0 0 20px rgba(236, 64, 122, 0.3) !important;
-        }
-        
-        /* ===== CAPTION DI BAWAH EMOJI ===== */
-        .sidebar-caption {
-            text-align: center;
-            color: #AD1457;
-            font-weight: bold;
-            font-size: 15px;
-            padding-top: 5px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -526,9 +478,7 @@ def halaman_deteksi():
         st.markdown("### 📸 Foto Kedua")
         file2 = st.file_uploader("Upload Foto 2", type=["jpg","jpeg","png"], key="f2_deteksi", label_visibility="collapsed")
     
-    # TOMBOL PROSES
     if st.button("🚀 Proses Deteksi Sekarang", use_container_width=True):
-        # Cek apakah file_latih ada
         if 'file_latih' not in locals() or not file_latih or len(file_latih) < 10:
             st.error("⚠️ **Data Latih Kurang!** Upload minimal 10 foto.")
             st.info("💡 Klik tombol 🌸 di sidebar untuk menampilkan bagian upload.")
@@ -538,7 +488,6 @@ def halaman_deteksi():
             with st.spinner("⏳ Sedang memproses... Mohon tunggu."):
                 time.sleep(0.5)
                 
-                # ===== FUNGSI PREPROCESSING =====
                 def deteksi_dan_potong_wajah(byte_gambar):
                     arr_np = np.frombuffer(byte_gambar, np.uint8)
                     img = cv2.imdecode(arr_np, cv2.IMREAD_COLOR)
@@ -578,7 +527,6 @@ def halaman_deteksi():
                         resize = cv2.resize(img, ukuran)
                         return cv2.cvtColor(resize, cv2.COLOR_BGR2RGB)
                 
-                # ===== PROSES DATA =====
                 UKURAN = (100, 100)
                 X_latih = []
                 
@@ -687,25 +635,32 @@ def halaman_deteksi():
                     """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. NAVIGASI SIDEBAR (EMOJI HORIZONTAL DENGAN BUNGA SAKURA)
+# 5. NAVIGASI SIDEBAR (EMOJI + EFEK SAKURA)
 # ==========================================
 st.sidebar.markdown("🌸 **Haloo!!**")
-menu = st.sidebar.radio(
-    "",
-    ["🏠", "🌫️", "🗜️", "🔍"],
-    index=0,
-    horizontal=True,
-    key="menu_radio"
-)
 
+# Definisikan menu dan icon
+menu_items = ["🏠", "🌫️", "🗜️", "🔍"]
+menu_labels = ["Home", "Grayscale", "Kompresi", "Deteksi Kemiripan"]
 page_map = {
     "🏠": "🏠 Home",
     "🌫️": "🌫️ Grayscale",
     "🗜️": "🗜️ Kompresi",
     "🔍": "🔍 Deteksi Kemiripan"
 }
-st.session_state.page = page_map[menu]
 
+# Buat 4 tombol emoji dalam 1 baris
+cols = st.sidebar.columns(4)
+for i, (col, emoji) in enumerate(zip(cols, menu_items)):
+    with col:
+        # Tombol emoji dengan CSS class
+        is_active = st.session_state.page == page_map[emoji]
+        btn_class = "emoji-btn active" if is_active else "emoji-btn"
+        if st.button(emoji, key=f"nav_{i}", use_container_width=True):
+            st.session_state.page = page_map[emoji]
+            st.rerun()
+
+# Keterangan fitur di bawah emoji
 st.sidebar.markdown("---")
 if st.session_state.page == "🏠 Home":
     st.sidebar.markdown('<p class="sidebar-caption">📌 Beranda & Profil</p>', unsafe_allow_html=True)
