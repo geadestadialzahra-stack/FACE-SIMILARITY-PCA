@@ -1,9 +1,4 @@
-# =====================================================
-# HALAMAN GRAYSCALE - KONVERSI KE HITAM-PUTIH
-# =====================================================
-# Dikerjakan oleh: [Nama Anggota 2]
-# =====================================================
-
+# halaman/grayscale.py - Konversi ke Grayscale
 import streamlit as st
 from PIL import Image
 
