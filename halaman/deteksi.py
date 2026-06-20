@@ -12,14 +12,16 @@ def tampilkan():
     # SIDEBAR: UPLOAD DATA LATIH + THRESHOLD
     # ==========================================
     with st.sidebar:
-        # --- Tombol Sakura (center, tanpa teks) ---
-        st.markdown('<div style="display: flex; justify-content: center; margin-top: 10px;">', unsafe_allow_html=True)
-        if st.button("🌸", key="toggle_sidebar_deteksi"):
-            st.session_state.show_upload = not st.session_state.show_upload
-            st.rerun()
+        # --- Tombol Sakura (tanpa garis dan caption) ---
+        st.markdown('<div class="sakura-btn-container" style="margin-top: 5px;">', unsafe_allow_html=True)
+        kol1, kol2, kol3 = st.columns([1, 2, 1])
+        with kol2:
+            if st.button("🌸", key="toggle_sidebar_deteksi"):
+                st.session_state.show_upload = not st.session_state.show_upload
+                st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # --- BLOK YANG MUNCUL/HILANG ---
+        # --- BLOK YANG MUNCUL/HILANG BERSAMAAN ---
         if st.session_state.show_upload:
             st.header("📂 Upload Data Latih")
             st.markdown("Upload **minimal 10 foto** wajah (2 orang, masing-masing 5+ foto)")
@@ -40,9 +42,13 @@ def tampilkan():
             ambang = st.slider("Atur batas kemiripan", 0.0, 1.0, 0.70, 0.05, key="threshold_deteksi")
             st.caption(f"Threshold saat ini: {ambang:.2f}")
 
-        # --- Penjelasan halaman (TANPA DIVIDER) ---
+        else:
+            st.info("🌸 Upload dan pengaturan disembunyikan. Klik sakura di atas.")
+
+        # --- Penjelasan halaman (tetap muncul) ---
+        st.divider()
         st.markdown("""
-        <div style="background: rgba(255, 255, 255, 0.5); padding: 15px; border-radius: 12px; border-left: 4px solid #EC407A; margin-top: 15px;">
+        <div style="background: rgba(255, 255, 255, 0.5); padding: 15px; border-radius: 12px; border-left: 4px solid #EC407A;">
             <h4 style="color: #AD1457; margin-top: 0;">🌸 Halo! Selamat datang di halaman Deteksi Kemiripan Wajah.</h4>
             <p style="color: #6A1B4D; font-size: 14px; line-height: 1.6;">
                 Di sini kamu bisa membandingkan dua foto wajah untuk melihat apakah kedua orang tersebut 
