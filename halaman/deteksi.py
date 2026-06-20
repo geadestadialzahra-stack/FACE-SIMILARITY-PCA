@@ -9,6 +9,14 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 def tampilkan():
     # ==========================================
+    # INISIALISASI: Sembunyikan upload saat pertama kali buka halaman deteksi
+    # ==========================================
+    # Cek apakah ini pertama kali halaman deteksi dibuka
+    if "deteksi_initialized" not in st.session_state:
+        st.session_state.deteksi_initialized = True
+        st.session_state.show_upload = False  # Upload disembunyikan
+
+    # ==========================================
     # SIDEBAR: UPLOAD DATA LATIH + THRESHOLD
     # ==========================================
     with st.sidebar:
@@ -38,7 +46,7 @@ def tampilkan():
             ambang = st.slider("Atur batas kemiripan", 0.0, 1.0, 0.70, 0.05, key="threshold_deteksi")
             st.caption(f"Threshold saat ini: {ambang:.2f}")
 
-        # --- Penjelasan halaman ---
+        # --- Penjelasan halaman (tetap muncul) ---
         st.markdown("""
         <div style="background: rgba(255, 255, 255, 0.5); padding: 15px; border-radius: 12px; border-left: 4px solid #EC407A; margin-top: 15px;">
             <h4 style="color: #AD1457; margin-top: 0;">🌸 Halo! Selamat datang di halaman Deteksi Kemiripan Wajah.</h4>
@@ -63,12 +71,10 @@ def tampilkan():
     # ==========================================
     # AREA UTAMA: UPLOAD 2 FOTO UJI
     # ==========================================
-    # Judul dengan jarak bawah 50px (lebih jauh)
     st.markdown("<h2 style='text-align: center; color: #AD1457; margin-bottom: 50px;'>🔍 Upload Dua Wajah untuk Dibandingkan</h2>", unsafe_allow_html=True)
 
     kolom1, kolom2 = st.columns(2)
     with kolom1:
-        # Tambahkan margin-top agar lebih lega dari judul
         st.markdown("### 📸 Foto Pertama")
         file1 = st.file_uploader("Upload Foto 1", type=["jpg","jpeg","png"], key="f1_deteksi", label_visibility="collapsed")
     with kolom2:
