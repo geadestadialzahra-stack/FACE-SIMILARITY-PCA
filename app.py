@@ -511,27 +511,28 @@ st.sidebar.markdown("**Teknik Informatika**")
 # DATA ANGGOTA
 anggota = [
     {
-        "~Gea Destadia Al-Zahra~",
+    
+        "nama": "Gea Destadia Al-Zahra",
         "ig": "@gea_destadia_10",
         "telp": "0831-5068-7481",
         "foto": "assets/gea.jpg"
     },
     {
-        "inisial": "LA",
+        
         "nama": "Luna Amilia",
         "ig": "@luunaaamiiii",
         "telp": "0895-3780-96802",
         "foto": "assets/luna.jpg"
     },
     {
-        "inisial": "NA",
+    
         "nama": "Nadia Azizah",
         "ig": "@ndyyzh",
         "telp": "0858-4631-3309",
         "foto": "assets/nadia.jpg"
     },
     {
-        "inisial": "DAAD",
+
         "nama": "Dalilah Arifah Ariandi DJR",
         "ig": "@adellianav",
         "telp": "0813-1211-6787",
