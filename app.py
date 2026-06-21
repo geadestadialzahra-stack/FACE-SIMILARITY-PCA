@@ -127,7 +127,7 @@ st.markdown("""
             padding-top: 5px;
         }
 
-        /* ----- PROFIL TIM DI SIDEBAR (tanpa background putih) ----- */
+        /* ----- PROFIL TIM DI SIDEBAR (kotak per anggota) ----- */
         .sidebar-profile {
             margin-top: 10px;
             padding: 8px 5px;
@@ -300,30 +300,30 @@ st.markdown("""
             100% { transform: translateY(-8px); }
         }
 
-        /* ----- GAYA KHUSUS DETEKSI (bintang) ----- */
+        /* ----- GAYA KHUSUS DETEKSI (love) ----- */
         .deteksi-header {
             text-align: center;
             padding: 1rem 0 0.5rem 0;
-            background: linear-gradient(135deg, #FFF8E1, #FFECB3);
+            background: linear-gradient(135deg, #FCE4EC, #FFF0F5);
             border-radius: 20px;
             margin-bottom: 2rem;
-            border: 1px solid #FFE082;
+            border: 1px solid #F8BBD0;
         }
         .deteksi-header h1 {
             font-size: 2.5rem;
-            color: #E65100;
+            color: #AD1457;
             margin: 0;
             font-weight: 800;
         }
-        .star-shower {
+        .love-shower {
             font-size: 1.8rem;
             letter-spacing: 4px;
-            color: #FFB300;
-            animation: spinStar 3s linear infinite;
+            color: #EC407A;
+            animation: pulseLove 1.5s ease-in-out infinite alternate;
         }
-        @keyframes spinStar {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        @keyframes pulseLove {
+            0% { transform: scale(1); opacity: 0.7; }
+            100% { transform: scale(1.1); opacity: 1; }
         }
     </style>
 """, unsafe_allow_html=True)
@@ -403,7 +403,7 @@ elif st.session_state.page == "🔍 Deteksi Kemiripan":
 # ======================== PROFIL TIM DI SIDEBAR ========================
 st.sidebar.markdown("---")
 st.sidebar.markdown('<div class="sidebar-profile">', unsafe_allow_html=True)
-st.sidebar.markdown("### 👥 Anggota Kelompok")
+st.sidebar.markdown("### 👥 Pengembangan Aplikasi")  # judul diubah
 st.sidebar.markdown("**Teknik Informatika**")
 
 # DATA ANGGOTA – GANTI DENGAN NAMA, KONTAK, DAN PATH FOTO (lokal atau URL)
@@ -576,9 +576,9 @@ elif page == "🌫️ Grayscale":
         st.image(example_img, caption="Contoh gambar (unggah gambar Anda sendiri untuk hasil nyata)", use_container_width=True)
 
 elif page == "🗜️ Kompresi":
-    # ==================== KOMPRESI PCA (dengan efek awan) ====================
+    # ==================== KOMPRESI PCA ====================
     if not st.session_state.kompresi_visited:
-        st.balloons()          # efek balon (seperti awan)
+        st.balloons()          # efek balon (awan)
         st.session_state.kompresi_visited = True
 
     st.markdown("""
@@ -669,30 +669,30 @@ elif page == "🗜️ Kompresi":
         st.info("👆 Unggah gambar untuk memulai kompresi.")
 
 elif page == "🔍 Deteksi Kemiripan":
-    # ==================== DETEKSI KEMIRIPAN (dengan efek bintang) ====================
+    # ==================== DETEKSI KEMIRIPAN (dengan love) ====================
     if not st.session_state.deteksi_visited:
-        st.snow()             # efek salju (seperti bintang jatuh)
+        st.balloons()          # efek balon (love)
         st.session_state.deteksi_visited = True
 
     st.markdown("""
     <div class="deteksi-header">
-        <div class="star-shower">✨ ⭐ ✨ ⭐ ✨ ⭐ ✨ ⭐ ✨ ⭐ ✨ ⭐</div>
+        <div class="love-shower">❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖</div>
         <h1>🔍 Deteksi Kemiripan Gambar</h1>
         <p>Temukan koneksi visual di antara dua gambar.</p>
-        <div class="star-shower">✨ ⭐ ✨ ⭐ ✨ ⭐ ✨ ⭐ ✨ ⭐ ✨ ⭐</div>
+        <div class="love-shower">❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖</div>
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #FFF8E1, #FFECB3); 
-                padding: 1.5rem; border-radius: 16px; border: 1px solid #FFE082; 
+    <div style="background: linear-gradient(135deg, #FCE4EC, #FFF0F5); 
+                padding: 1.5rem; border-radius: 16px; border: 1px solid #F8BBD0; 
                 margin-bottom: 2rem; text-align: center;">
-        <p style="font-size:1.2rem; color:#E65100;">
-            ✨ <b>Kemiripan</b> adalah jembatan antara dua gambar. Dengan <b>SSIM</b> dan <b>MSE</b>, 
+        <p style="font-size:1.2rem; color:#6A1B4D;">
+            ❤️ <b>Kemiripan</b> adalah jembatan antara dua gambar. Dengan <b>SSIM</b> dan <b>MSE</b>, 
             kita mengukur seberapa dekat mereka dalam struktur, kontras, dan kecerahan. 
             Setiap angka bercerita tentang persamaan yang mungkin tak terlihat oleh mata.
         </p>
-        <p style="color:#BF360C; font-style:italic;">
+        <p style="color:#880E4F; font-style:italic;">
             "Dua gambar mungkin berbeda, tetapi jiwa visualnya bisa sama."
         </p>
     </div>
@@ -734,8 +734,8 @@ elif page == "🔍 Deteksi Kemiripan":
                 st.info(f"📊 Mean Squared Error (MSE): **{mse_score:.6f}** (semakin kecil = semakin mirip)")
 
                 if ssim_score > 0.8:
-                    st.snow()   # bintang jatuh sebagai perayaan
-                    st.markdown("⭐ **Gambar sangat mirip!** Terima kasih telah menggunakan layanan kami. Salam cinta ❤️")
+                    st.balloons()   # perayaan dengan balon
+                    st.markdown("❤️ **Gambar sangat mirip!** Terima kasih telah menggunakan layanan kami. Salam cinta ❤️")
             except Exception as e:
                 st.error(f"Terjadi kesalahan: {e}")
     else:
