@@ -248,7 +248,7 @@ st.markdown("""
             color: #AD1457;
         }
 
-        /* ----- GAYA KHUSUS GRAYSCALE (bunga & header) ----- */
+        /* ----- GAYA KHUSUS GRAYSCALE (bunga) ----- */
         .grayscale-header {
             text-align: center;
             padding: 1rem 0 0.5rem 0;
@@ -273,6 +273,58 @@ st.markdown("""
             0% { opacity: 0.6; transform: scale(1); }
             100% { opacity: 1; transform: scale(1.05); }
         }
+
+        /* ----- GAYA KHUSUS KOMPRESI (awan) ----- */
+        .kompresi-header {
+            text-align: center;
+            padding: 1rem 0 0.5rem 0;
+            background: linear-gradient(135deg, #E3F2FD, #BBDEFB);
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            border: 1px solid #90CAF9;
+        }
+        .kompresi-header h1 {
+            font-size: 2.5rem;
+            color: #0D47A1;
+            margin: 0;
+            font-weight: 800;
+        }
+        .cloud-shower {
+            font-size: 1.8rem;
+            letter-spacing: 4px;
+            color: #42A5F5;
+            animation: floatCloud 3s ease-in-out infinite alternate;
+        }
+        @keyframes floatCloud {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-8px); }
+        }
+
+        /* ----- GAYA KHUSUS DETEKSI (bintang) ----- */
+        .deteksi-header {
+            text-align: center;
+            padding: 1rem 0 0.5rem 0;
+            background: linear-gradient(135deg, #FFF8E1, #FFECB3);
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            border: 1px solid #FFE082;
+        }
+        .deteksi-header h1 {
+            font-size: 2.5rem;
+            color: #E65100;
+            margin: 0;
+            font-weight: 800;
+        }
+        .star-shower {
+            font-size: 1.8rem;
+            letter-spacing: 4px;
+            color: #FFB300;
+            animation: spinStar 3s linear infinite;
+        }
+        @keyframes spinStar {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -281,33 +333,30 @@ if "page" not in st.session_state:
     st.session_state.page = "🏠 Home"
 if "grayscale_visited" not in st.session_state:
     st.session_state.grayscale_visited = False
+if "kompresi_visited" not in st.session_state:
+    st.session_state.kompresi_visited = False
+if "deteksi_visited" not in st.session_state:
+    st.session_state.deteksi_visited = False
 
 # ======================== FUNGSI BANTU UNTUK FOTO ========================
 def get_image_base64(path_or_url):
-    """Mengambil gambar dari path lokal atau URL, return base64 string atau None jika gagal."""
     try:
-        # Cek apakah URL
         parsed = urlparse(path_or_url)
         if parsed.scheme in ('http', 'https'):
-            # Download dari URL
             response = requests.get(path_or_url, timeout=5)
             if response.status_code == 200:
-                img_data = response.content
-                return base64.b64encode(img_data).decode()
+                return base64.b64encode(response.content).decode()
         else:
-            # File lokal
             if os.path.exists(path_or_url):
                 with open(path_or_url, "rb") as f:
-                    img_data = f.read()
-                    return base64.b64encode(img_data).decode()
-    except Exception as e:
-        print(f"Gagal memuat gambar: {e}")
+                    return base64.b64encode(f.read()).decode()
+    except:
+        pass
     return None
 
 # ======================== SIDEBAR NAVIGASI & PROFIL ========================
 st.sidebar.markdown("🌸 **Haloo!!**")
 
-# Navigasi (tombol emoji)
 menus = [
     ("🏠", "🏠 Home"),
     ("🌫️", "🌫️ Grayscale"),
@@ -332,11 +381,15 @@ for col, (emoji, page_name) in zip(cols, menus):
             """, unsafe_allow_html=True)
         if st.button(emoji, key=f"nav_{emoji}", use_container_width=True):
             st.session_state.page = page_name
+            # Reset efek agar muncul lagi saat pindah ke halaman tersebut
             if page_name == "🌫️ Grayscale":
                 st.session_state.grayscale_visited = False
+            elif page_name == "🗜️ Kompresi":
+                st.session_state.kompresi_visited = False
+            elif page_name == "🔍 Deteksi Kemiripan":
+                st.session_state.deteksi_visited = False
             st.rerun()
 
-# Caption navigasi
 st.sidebar.markdown("---")
 if st.session_state.page == "🏠 Home":
     st.sidebar.markdown('<p class="sidebar-caption">🏠 Beranda</p>', unsafe_allow_html=True)
@@ -359,7 +412,7 @@ anggota = [
         "nama": "Gea Destadia Al-Zahra",
         "ig": "@gea_destadia_10",
         "telp": "0831-5068-7481",
-        "foto": "WIN_20260610_11_03_00_Pro.jpg"  # ganti dengan path foto Anda
+        "foto": "assets/gea.jpg"
     },
     {
         "nama": "Luna Amilia",
@@ -383,13 +436,8 @@ anggota = [
 
 for member in anggota:
     inisial = ''.join([kata[0] for kata in member["nama"].split()])
-    # Coba dapatkan base64 foto
     foto_b64 = get_image_base64(member["foto"])
-    if foto_b64:
-        avatar_html = f'<img src="data:image/jpeg;base64,{foto_b64}" />'
-    else:
-        avatar_html = inisial  # fallback ke inisial
-
+    avatar_html = f'<img src="data:image/jpeg;base64,{foto_b64}" />' if foto_b64 else inisial
     st.sidebar.markdown(f"""
     <div class="profile-item">
         <div class="profile-avatar">{avatar_html}</div>
@@ -405,7 +453,7 @@ st.sidebar.markdown('<div class="sidebar-university">🎓 Universitas Negeri Sem
 st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 
-# ======================== HALAMAN UTAMA (full width) ========================
+# ======================== HALAMAN UTAMA ========================
 page = st.session_state.page
 
 if page == "🏠 Home":
@@ -491,7 +539,6 @@ elif page == "🌫️ Grayscale":
                 st.markdown(f"*Ukuran: {gray_rgb.width} x {gray_rgb.height} px*")
                 st.markdown('</div>', unsafe_allow_html=True)
 
-                # Tombol download
                 buf = io.BytesIO()
                 gray_rgb.save(buf, format="PNG")
                 byte_im = buf.getvalue()
@@ -500,7 +547,6 @@ elif page == "🌫️ Grayscale":
                 href += '<button class="download-btn">⬇️ Download Hasil</button></a>'
                 st.markdown(href, unsafe_allow_html=True)
 
-                # Pesan sukses
                 st.success("🌸 Semoga membantu, terima kasih banyak telah menggunakan jasa layanan kami, salam cinta ❤️")
                 st.balloons()
 
@@ -521,7 +567,6 @@ elif page == "🌫️ Grayscale":
         </div>
         """, unsafe_allow_html=True)
 
-        # Contoh gambar placeholder
         example_img = Image.new('RGB', (400, 300), color='#FCE4EC')
         draw = ImageDraw.Draw(example_img)
         draw.rectangle([50, 50, 150, 150], fill='#EC407A')
@@ -531,18 +576,31 @@ elif page == "🌫️ Grayscale":
         st.image(example_img, caption="Contoh gambar (unggah gambar Anda sendiri untuk hasil nyata)", use_container_width=True)
 
 elif page == "🗜️ Kompresi":
-    # ==================== KOMPRESI PCA ====================
+    # ==================== KOMPRESI PCA (dengan efek awan) ====================
+    if not st.session_state.kompresi_visited:
+        st.balloons()          # efek balon (seperti awan)
+        st.session_state.kompresi_visited = True
+
     st.markdown("""
-    <div class="content-card">
-        <h2>🗜️ Kompresi Gambar dengan PCA</h2>
-        <p>
-            <b>Principal Component Analysis (PCA)</b> adalah teknik reduksi dimensi yang dapat 
-            mengecilkan ukuran gambar dengan tetap mempertahankan informasi penting. 
-            Semakin rendah komponen yang digunakan, semakin besar kompresi, namun kualitas visual 
-            akan menurun secara bertahap.
+    <div class="kompresi-header">
+        <div class="cloud-shower">☁️ ☁️ ☁️ ☁️ ☁️ ☁️ ☁️ ☁️ ☁️ ☁️ ☁️ ☁️</div>
+        <h1>🗜️ Kompresi Gambar dengan PCA</h1>
+        <p>Kecilkan ukuran, pertahankan esensi.</p>
+        <div class="cloud-shower">☁️ ☁️ ☁️ ☁️ ☁️ ☁️ ☁️ ☁️ ☁️ ☁️ ☁️ ☁️</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #E3F2FD, #BBDEFB); 
+                padding: 1.5rem; border-radius: 16px; border: 1px solid #90CAF9; 
+                margin-bottom: 2rem; text-align: center;">
+        <p style="font-size:1.2rem; color:#0D47A1;">
+            ☁️ <b>Principal Component Analysis (PCA)</b> adalah teknik cerdas yang mereduksi dimensi gambar 
+            tanpa menghilangkan jati dirinya. Seperti awan yang menampung jutaan tetes air, 
+            PCA merangkum informasi penting dalam bentuk yang lebih ringkas.
         </p>
-        <p style="color:#880E4F; font-style:italic;">
-            "Kecilkan ukuran, pertahankan esensi."
+        <p style="color:#1565C0; font-style:italic;">
+            "Kecilkan ukuran, pertahankan esensi – itulah keajaiban kompresi."
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -590,7 +648,6 @@ elif page == "🗜️ Kompresi":
                 st.markdown(f"*Ukuran: {w} x {h} px*")
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # Tombol download
             buf = io.BytesIO()
             compressed_pil.save(buf, format="PNG")
             byte_im = buf.getvalue()
@@ -602,9 +659,9 @@ elif page == "🗜️ Kompresi":
             st.markdown("""
             <div class="info-box">
                 <b>💡 Manfaat Kompresi PCA:</b><br>
-                • Mengurangi ukuran file secara signifikan.<br>
+                • Mengurangi ukuran file secara signifikan (hingga 70% lebih kecil).<br>
                 • Mempercepat transfer dan penyimpanan data.<br>
-                • Tetap mempertahankan fitur utama gambar.
+                • Tetap mempertahankan fitur utama gambar – hanya yang tidak penting yang dibuang.
             </div>
             """, unsafe_allow_html=True)
 
@@ -612,17 +669,31 @@ elif page == "🗜️ Kompresi":
         st.info("👆 Unggah gambar untuk memulai kompresi.")
 
 elif page == "🔍 Deteksi Kemiripan":
-    # ==================== DETEKSI KEMIRIPAN ====================
+    # ==================== DETEKSI KEMIRIPAN (dengan efek bintang) ====================
+    if not st.session_state.deteksi_visited:
+        st.snow()             # efek salju (seperti bintang jatuh)
+        st.session_state.deteksi_visited = True
+
     st.markdown("""
-    <div class="content-card">
-        <h2>🔍 Deteksi Kemiripan Gambar</h2>
-        <p>
-            Bandingkan dua gambar dan dapatkan skor kemiripan berdasarkan 
-            <b>Structural Similarity Index (SSIM)</b> atau <b>Mean Squared Error (MSE)</b>.
-            Semakin tinggi skor SSIM (mendekati 1), semakin mirip kedua gambar.
+    <div class="deteksi-header">
+        <div class="star-shower">✨ ⭐ ✨ ⭐ ✨ ⭐ ✨ ⭐ ✨ ⭐ ✨ ⭐</div>
+        <h1>🔍 Deteksi Kemiripan Gambar</h1>
+        <p>Temukan koneksi visual di antara dua gambar.</p>
+        <div class="star-shower">✨ ⭐ ✨ ⭐ ✨ ⭐ ✨ ⭐ ✨ ⭐ ✨ ⭐</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #FFF8E1, #FFECB3); 
+                padding: 1.5rem; border-radius: 16px; border: 1px solid #FFE082; 
+                margin-bottom: 2rem; text-align: center;">
+        <p style="font-size:1.2rem; color:#E65100;">
+            ✨ <b>Kemiripan</b> adalah jembatan antara dua gambar. Dengan <b>SSIM</b> dan <b>MSE</b>, 
+            kita mengukur seberapa dekat mereka dalam struktur, kontras, dan kecerahan. 
+            Setiap angka bercerita tentang persamaan yang mungkin tak terlihat oleh mata.
         </p>
-        <p style="color:#880E4F; font-style:italic;">
-            "Temukan koneksi visual di antara dua gambar."
+        <p style="color:#BF360C; font-style:italic;">
+            "Dua gambar mungkin berbeda, tetapi jiwa visualnya bisa sama."
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -663,8 +734,8 @@ elif page == "🔍 Deteksi Kemiripan":
                 st.info(f"📊 Mean Squared Error (MSE): **{mse_score:.6f}** (semakin kecil = semakin mirip)")
 
                 if ssim_score > 0.8:
-                    st.balloons()
-                    st.markdown("🌸 **Gambar sangat mirip!** Terima kasih telah menggunakan layanan kami. Salam cinta ❤️")
+                    st.snow()   # bintang jatuh sebagai perayaan
+                    st.markdown("⭐ **Gambar sangat mirip!** Terima kasih telah menggunakan layanan kami. Salam cinta ❤️")
             except Exception as e:
                 st.error(f"Terjadi kesalahan: {e}")
     else:
