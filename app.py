@@ -248,6 +248,39 @@ st.markdown("""
             color: #AD1457;
         }
 
+        /* ----- GAYA KHUSUS HOME (bling-bling) ----- */
+        .home-header {
+            text-align: center;
+            padding: 1rem 0 0.5rem 0;
+            background: linear-gradient(135deg, #FFF9C4, #FFE082);
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            border: 2px solid #FFB300;
+            box-shadow: 0 0 30px rgba(255, 193, 7, 0.2);
+            animation: glowPulse 2s ease-in-out infinite alternate;
+        }
+        @keyframes glowPulse {
+            0% { box-shadow: 0 0 20px rgba(255, 193, 7, 0.1); }
+            100% { box-shadow: 0 0 50px rgba(255, 193, 7, 0.4); }
+        }
+        .home-header h1 {
+            font-size: 2.8rem;
+            color: #E65100;
+            margin: 0;
+            font-weight: 900;
+            text-shadow: 0 0 20px rgba(255, 193, 7, 0.3);
+        }
+        .bling-shower {
+            font-size: 2rem;
+            letter-spacing: 6px;
+            color: #FFB300;
+            animation: sparkle 1.5s ease-in-out infinite alternate;
+        }
+        @keyframes sparkle {
+            0% { opacity: 0.4; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1.1); }
+        }
+
         /* ----- GAYA KHUSUS GRAYSCALE (bunga) ----- */
         .grayscale-header {
             text-align: center;
@@ -331,6 +364,8 @@ st.markdown("""
 # ======================== SESSION STATE ========================
 if "page" not in st.session_state:
     st.session_state.page = "🏠 Home"
+if "home_visited" not in st.session_state:
+    st.session_state.home_visited = False
 if "grayscale_visited" not in st.session_state:
     st.session_state.grayscale_visited = False
 if "kompresi_visited" not in st.session_state:
@@ -382,7 +417,9 @@ for col, (emoji, page_name) in zip(cols, menus):
         if st.button(emoji, key=f"nav_{emoji}", use_container_width=True):
             st.session_state.page = page_name
             # Reset efek agar muncul lagi saat pindah ke halaman tersebut
-            if page_name == "🌫️ Grayscale":
+            if page_name == "🏠 Home":
+                st.session_state.home_visited = False
+            elif page_name == "🌫️ Grayscale":
                 st.session_state.grayscale_visited = False
             elif page_name == "🗜️ Kompresi":
                 st.session_state.kompresi_visited = False
@@ -457,18 +494,43 @@ st.sidebar.markdown('</div>', unsafe_allow_html=True)
 page = st.session_state.page
 
 if page == "🏠 Home":
-    # ==================== HOME ====================
+    # ==================== HOME (dengan bling-bling) ====================
+    if not st.session_state.home_visited:
+        st.balloons()          # efek balon sebagai bling-bling
+        st.session_state.home_visited = True
+
+    st.markdown("""
+    <div class="home-header">
+        <div class="bling-shower">✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨</div>
+        <h1>🌸 Selamat Datang di Aplikasi LANG</h1>
+        <p style="font-size:1.3rem; color:#BF360C; font-weight:500;">
+            Tempat terbaik untuk mengolah gambar Anda dengan sentuhan kecantikan.
+        </p>
+        <div class="bling-shower">✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #FFF9C4, #FFE082); 
+                padding: 1.5rem; border-radius: 16px; border: 1px solid #FFB300; 
+                margin-bottom: 2rem; text-align: center;">
+        <p style="font-size:1.2rem; color:#E65100;">
+            🌟 <b>LANG</b> hadir untuk membantu Anda mengubah gambar menjadi lebih artistik, 
+            ringkas, dan bermakna. Jelajahi fitur-fitur kami dan temukan keajaiban visual.
+        </p>
+        <p style="color:#BF360C; font-style:italic;">
+            "Setiap gambar memiliki cerita – biarkan kami membantu Anda menceritakannya."
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.markdown("""
     <div class="content-card">
-        <h2>🌸 Selamat Datang di Aplikasi LANG</h2>
-        <p style="font-size:1.1rem;">
-            Aplikasi ini dirancang untuk membantu Anda mengolah gambar dengan mudah dan cepat.
-        </p>
+        <h2>🌸 Fitur Unggulan</h2>
         <p>
-            <b>Fitur unggulan:</b><br>
-            • <b>🌫️ Grayscale</b> – Ubah gambar menjadi hitam-putih untuk efek artistik dan penghematan ukuran.<br>
-            • <b>🗜️ Kompresi PCA</b> – Reduksi dimensi gambar menggunakan Principal Component Analysis, menjaga kualitas visual dengan ukuran lebih kecil.<br>
-            • <b>🔍 Deteksi Kemiripan</b> – Bandingkan dua gambar dan dapatkan skor kemiripan secara otomatis.
+            <b>🌫️ Grayscale</b> – Ubah gambar menjadi hitam-putih untuk efek artistik dan penghematan ukuran.<br>
+            <b>🗜️ Kompresi PCA</b> – Reduksi dimensi gambar menggunakan Principal Component Analysis, menjaga kualitas visual dengan ukuran lebih kecil.<br>
+            <b>🔍 Deteksi Kemiripan</b> – Bandingkan dua gambar dan dapatkan skor kemiripan secara otomatis.
         </p>
         <p>
             <b>Manfaat:</b><br>
