@@ -41,6 +41,39 @@ st.markdown("""
             font-weight: bold !important;
         }
 
+        /* ----- SIDEBAR DEKORASI ----- */
+        .sidebar-header {
+            text-align: center;
+            padding: 10px 0 5px 0;
+            border-bottom: 2px solid #F8BBD0;
+            margin-bottom: 15px;
+        }
+        .sidebar-header .logo {
+            font-size: 50px;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .sidebar-header .title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #AD1457;
+            letter-spacing: 2px;
+        }
+        .sidebar-header .subtitle {
+            font-size: 14px;
+            color: #880E4F;
+            font-style: italic;
+            margin-top: 2px;
+        }
+        .sidebar-footer {
+            text-align: center;
+            font-size: 12px;
+            color: #AD1457;
+            border-top: 1px solid #F8BBD0;
+            padding-top: 8px;
+            margin-top: 15px;
+        }
+
         /* ----- TOMBOL UMUM ----- */
         .stButton button {
             background: linear-gradient(135deg, #EC407A, #D81B60) !important;
@@ -123,8 +156,9 @@ st.markdown("""
             text-align: center;
             color: #AD1457;
             font-weight: bold;
-            font-size: 15px;
-            padding-top: 5px;
+            font-size: 13px;
+            padding-top: 3px;
+            margin-bottom: 8px;
         }
 
         /* ----- PROFIL TIM DI SIDEBAR (kotak per anggota) ----- */
@@ -390,19 +424,32 @@ def get_image_base64(path_or_url):
     return None
 
 # ======================== SIDEBAR NAVIGASI & PROFIL ========================
-st.sidebar.markdown("🌸 ** Haloo!! **")
-st.sidebar.markdown("Lupakan dia yang membuatmu terluka, Semoga web ini bisa membuatmu bahagia")
-st.sidebar.markdown("  🌸🌸🌸 ")
+# --- HEADER SIDEBAR (Dekorasi) ---
+st.sidebar.markdown("""
+<div class="sidebar-header">
+    <span class="logo">🌸</span>
+    <span class="title">ANGEL</span>
+    <div class="subtitle">✨ Edit & Kreasikan Gambarmu ✨</div>
+</div>
+""", unsafe_allow_html=True)
 
+# --- PESAN DI BAWAH HEADER ---
+st.sidebar.markdown("""
+<div style="text-align: center; font-size: 14px; color: #880E4F; padding: 0 5px 10px 5px; font-style: italic;">
+    Lupakan dia yang membuatmu terluka,<br>semoga web ini bisa membuatmu bahagia.
+</div>
+""", unsafe_allow_html=True)
+
+# --- MENU NAVIGASI ---
 menus = [
-    ("🏠 HOME", "🏠 Home"),
-    ("🌫️"GRAYSCALE, "🌫️ Grayscale"),
-    ("🗜️"KOMPRESI, "🗜️ Kompresi"),
-    ("🔍"DETEKSI KEMIRIPAN, "🔍 Deteksi Kemiripan")
+    ("🏠", "🏠 Home", "Home"),
+    ("🌫️", "🌫️ Grayscale", "Grayscale"),
+    ("🗜️", "🗜️ Kompresi", "Kompresi"),
+    ("🔍", "🔍 Deteksi", "Deteksi")
 ]
 
 cols = st.sidebar.columns(4)
-for col, (emoji, page_name) in zip(cols, menus):
+for col, (emoji, page_name, label) in zip(cols, menus):
     with col:
         is_active = (st.session_state.page == page_name)
         if is_active:
@@ -418,31 +465,32 @@ for col, (emoji, page_name) in zip(cols, menus):
             """, unsafe_allow_html=True)
         if st.button(emoji, key=f"nav_{emoji}", use_container_width=True):
             st.session_state.page = page_name
-            # Reset efek agar muncul lagi saat pindah ke halaman tersebut
+            # Reset efek
             if page_name == "🏠 Home":
                 st.session_state.home_visited = False
             elif page_name == "🌫️ Grayscale":
                 st.session_state.grayscale_visited = False
             elif page_name == "🗜️ Kompresi":
                 st.session_state.kompresi_visited = False
-            elif page_name == "🔍 Deteksi Kemiripan":
+            elif page_name == "🔍 Deteksi":
                 st.session_state.deteksi_visited = False
             st.rerun()
 
+# --- CAPTION DI BAWAH TOMBOL ---
 st.sidebar.markdown("---")
 if st.session_state.page == "🏠 Home":
-    st.sidebar.markdown('<p class="sidebar-caption">🏠 Beranda</p>', unsafe_allow_html=True)
+    st.sidebar.markdown('<p class="sidebar-caption">🏠 Home</p>', unsafe_allow_html=True)
 elif st.session_state.page == "🌫️ Grayscale":
-    st.sidebar.markdown('<p class="sidebar-caption">🌫️ Ubah ke hitam-putih</p>', unsafe_allow_html=True)
+    st.sidebar.markdown('<p class="sidebar-caption">🌫️ Grayscale</p>', unsafe_allow_html=True)
 elif st.session_state.page == "🗜️ Kompresi":
-    st.sidebar.markdown('<p class="sidebar-caption">🗜️ Kompresi dengan PCA</p>', unsafe_allow_html=True)
-elif st.session_state.page == "🔍 Deteksi Kemiripan":
-    st.sidebar.markdown('<p class="sidebar-caption">🔍 Cari kemiripan</p>', unsafe_allow_html=True)
+    st.sidebar.markdown('<p class="sidebar-caption">🗜️ Kompresi</p>', unsafe_allow_html=True)
+elif st.session_state.page == "🔍 Deteksi":
+    st.sidebar.markdown('<p class="sidebar-caption">🔍 Deteksi Kemiripan</p>', unsafe_allow_html=True)
 
 # ======================== PROFIL TIM DI SIDEBAR ========================
 st.sidebar.markdown("---")
 st.sidebar.markdown('<div class="sidebar-profile">', unsafe_allow_html=True)
-st.sidebar.markdown("### 👥 Pengembangan Aplikasi")  # judul diubah
+st.sidebar.markdown("### 👥 Pengembangan Aplikasi")
 st.sidebar.markdown("**Teknik Informatika**")
 
 # DATA ANGGOTA – GANTI DENGAN NAMA, KONTAK, DAN PATH FOTO (lokal atau URL)
@@ -491,20 +539,27 @@ for member in anggota:
 st.sidebar.markdown('<div class="sidebar-university">🎓 Universitas Negeri Semarang</div>', unsafe_allow_html=True)
 st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
+# --- FOOTER SIDEBAR ---
+st.sidebar.markdown("""
+<div class="sidebar-footer">
+    🌸 Made with Love by Team ANGEL 🌸
+</div>
+""", unsafe_allow_html=True)
+
 
 # ======================== HALAMAN UTAMA ========================
 page = st.session_state.page
 
 if page == "🏠 Home":
-    # ==================== HOME (dengan bling-bling) ====================
+    # ==================== HOME ====================
     if not st.session_state.home_visited:
-        st.balloons()          # efek balon sebagai bling-bling
+        st.balloons()
         st.session_state.home_visited = True
 
     st.markdown("""
     <div class="home-header">
         <div class="bling-shower">✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨</div>
-        <h1>🌸 Selamat Datang di Web ANGEL 🌸</h1>
+        <h1>🌸 Selamat Datang di ANGEL 🌸</h1>
         <p style="font-size:1.3rem; color:#BF360C; font-weight:500;">
             Tempat terbaik untuk mengolah gambar Anda dengan sentuhan kecantikan.
         </p>
@@ -642,7 +697,7 @@ elif page == "🌫️ Grayscale":
 elif page == "🗜️ Kompresi":
     # ==================== KOMPRESI PCA ====================
     if not st.session_state.kompresi_visited:
-        st.balloons()          # efek balon (awan)
+        st.balloons()
         st.session_state.kompresi_visited = True
 
     st.markdown("""
@@ -732,10 +787,10 @@ elif page == "🗜️ Kompresi":
     else:
         st.info("👆 Unggah gambar untuk memulai kompresi.")
 
-elif page == "🔍 Deteksi Kemiripan":
-    # ==================== DETEKSI KEMIRIPAN (dengan love) ====================
+elif page == "🔍 Deteksi":
+    # ==================== DETEKSI KEMIRIPAN ====================
     if not st.session_state.deteksi_visited:
-        st.balloons()          # efek balon (love)
+        st.balloons()
         st.session_state.deteksi_visited = True
 
     st.markdown("""
@@ -798,7 +853,7 @@ elif page == "🔍 Deteksi Kemiripan":
                 st.info(f"📊 Mean Squared Error (MSE): **{mse_score:.6f}** (semakin kecil = semakin mirip)")
 
                 if ssim_score > 0.8:
-                    st.balloons()   # perayaan dengan balon
+                    st.balloons()
                     st.markdown("❤️ **Gambar sangat mirip!** Terima kasih telah menggunakan layanan kami. Salam cinta ❤️")
             except Exception as e:
                 st.error(f"Terjadi kesalahan: {e}")
