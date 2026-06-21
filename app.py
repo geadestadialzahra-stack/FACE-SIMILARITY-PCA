@@ -511,7 +511,7 @@ st.sidebar.markdown("**Teknik Informatika**")
 # DATA ANGGOTA
 anggota = [
     {
-        <h1>"~Gea Destadia Al-Zahra~"</h1>
+        "~Gea Destadia Al-Zahra~",
         "ig": "@gea_destadia_10",
         "telp": "0831-5068-7481",
         "foto": "assets/gea.jpg"
