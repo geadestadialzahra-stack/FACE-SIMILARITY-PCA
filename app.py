@@ -11,8 +11,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
 from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import peak_signal_noise_ratio as psnr
+from sklearn.datasets import fetch_lfw_people
 import tempfile
 import zipfile
+import cv2
+import warnings
+warnings.filterwarnings("ignore")
 
 # ======================== KONFIGURASI HALAMAN ========================
 st.set_page_config(
@@ -91,6 +95,7 @@ st.markdown("""
             border: none !important;
             box-shadow: 0 4px 15px rgba(233, 30, 99, 0.3) !important;
             transition: 0.3s !important;
+            width: 100% !important;  /* PAKSA FULL WIDTH */
         }
         .stButton button:hover {
             transform: scale(1.03) translateY(-2px) !important;
@@ -472,6 +477,35 @@ st.markdown("""
             margin: 1rem 0;
             border: 1px solid #F8BBD0;
         }
+        /* ----- BADGE PINK UNTUK LABEL FOTO ----- */
+        .pink-badge {
+            display: block !important;
+            width: 100% !important;
+            background: linear-gradient(135deg, #FCE4EC, #F8BBD0) !important;
+            color: #AD1457 !important;
+            padding: 10px 18px !important;
+            border-radius: 12px !important;
+            font-weight: bold !important;
+            font-size: 16px !important;
+            border: 1px solid #EC407A !important;
+            box-shadow: 0 2px 10px rgba(233, 30, 99, 0.12) !important;
+            text-align: center !important;
+            margin-bottom: 12px !important;
+        }
+        .result-container {
+            text-align: center !important;
+        }
+        .explanation-box {
+            background: rgba(255, 255, 255, 0.5) !important;
+            padding: 15px !important;
+            border-radius: 12px !important;
+            border-left: 4px solid #EC407A !important;
+            box-shadow: 0 2px 10px rgba(233, 30, 99, 0.08) !important;
+            color: #6A1B4D !important;
+        }
+        .explanation-box b {
+            color: #AD1457 !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -504,7 +538,6 @@ def get_image_base64(path_or_url):
     return None
 
 # ======================== SIDEBAR NAVIGASI & PROFIL ========================
-# --- HEADER SIDEBAR ---
 st.sidebar.markdown("""
 <div class="sidebar-header">
     <span class="logo">🌸</span>
@@ -513,14 +546,12 @@ st.sidebar.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# --- PESAN DI BAWAH HEADER ---
 st.sidebar.markdown("""
 <div style="text-align: center; font-size: 14px; color: #880E4F; padding: 0 5px 8px 5px; font-style: italic;">
     Lupakan dia yang membuatmu terluka,<br>semoga web ini bisa membuatmu bahagia. <br> <br> Silahkan pilih menu yang diinginkan !
 </div>
 """, unsafe_allow_html=True)
 
-# --- MENU NAVIGASI ---
 menus = [
     ("🏠", "🏠 Home", "Home"),
     ("🌫️", "🌫️ Grayscale", "Grayscale"),
@@ -545,7 +576,6 @@ for col, (emoji, page_name, label) in zip(cols, menus):
             """, unsafe_allow_html=True)
         if st.button(emoji, key=f"nav_{emoji}", use_container_width=True):
             st.session_state.page = page_name
-            # Reset efek
             if page_name == "🏠 Home":
                 st.session_state.home_visited = False
             elif page_name == "🌫️ Grayscale":
@@ -556,7 +586,6 @@ for col, (emoji, page_name, label) in zip(cols, menus):
                 st.session_state.deteksi_visited = False
             st.rerun()
 
-# --- CAPTION DI BAWAH TOMBOL ---
 st.sidebar.markdown("---")
 if st.session_state.page == "🏠 Home":
     st.sidebar.markdown('<p class="sidebar-caption">🏠 Home</p>', unsafe_allow_html=True)
@@ -567,66 +596,49 @@ elif st.session_state.page == "🗜️ Kompresi":
 elif st.session_state.page == "🔍 Deteksi":
     st.sidebar.markdown('<p class="sidebar-caption">🔍 Deteksi Kemiripan</p>', unsafe_allow_html=True)
 
-# ======================== PROFIL TIM DI SIDEBAR (dengan kotak tegas) ========================
 st.sidebar.markdown("---")
 st.sidebar.markdown('<div class="sidebar-profile">', unsafe_allow_html=True)
-st.sidebar.markdown("### 👥 Pengembangan Aplikasi")
-st.sidebar.markdown("**Teknik Informatika**")
+st.sidebar.markdown("### 👥 Pengembang Aplikasi")
+st.sidebar.markdown("**Sarjana Teknik Informatika**")
 
-# DATA ANGGOTA
 anggota = [
     {
-        "inisial": "GDA",
         "nama": "Gea Destadia Al-Zahra",
         "ig": "@gea_destadia_10",
         "telp": "0831-5068-7481",
-        "foto": "assets/gea.jpg"
     },
     {
-        "inisial": "LA",
         "nama": "Luna Amilia",
         "ig": "@luunaaamiiii",
-        "telp": "0895-3780-96802",
-        "foto": "assets/luna.jpg"
+        "telp": "lunaamilia0@gmail.com",
     },
     {
-        "inisial": "NA",
         "nama": "Nadia Azizah",
         "ig": "@ndyyzh",
         "telp": "0858-4631-3309",
-        "foto": "assets/nadia.jpg"
     },
     {
-        "inisial": "DAAD",
         "nama": "Dalilah Arifah Ariandi DJR",
         "ig": "@adellianav",
         "telp": "0813-1211-6787",
-        "foto": "assets/dalilah.jpg"
     },
 ]
 
 for member in anggota:
-    foto_b64 = get_image_base64(member.get("foto", ""))
-    if foto_b64:
-        avatar_html = f'<img src="data:image/jpeg;base64,{foto_b64}" />'
-    else:
-        avatar_html = member["inisial"]
-    
     st.sidebar.markdown(f"""
     <div class="profile-item">
-        <div class="profile-avatar">{avatar_html}</div>
         <div class="profile-info">
             <div class="name">• {member['nama']} •</div>
             <div class="detail">📸 {member['ig']}</div>
             <div class="detail">📞 {member['telp']}</div>
         </div>
     </div>
+    <br>
     """, unsafe_allow_html=True)
 
 st.sidebar.markdown('<div class="sidebar-university">🎓 Universitas Negeri Semarang</div>', unsafe_allow_html=True)
 st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
-# --- FOOTER SIDEBAR ---
 st.sidebar.markdown("""
 <div class="sidebar-footer">
     🌸 Made with Love by Team ANGEL 🌸
@@ -638,7 +650,6 @@ st.sidebar.markdown("""
 page = st.session_state.page
 
 if page == "🏠 Home":
-    # ==================== HOME ====================
     if not st.session_state.home_visited:
         st.balloons()
         st.session_state.home_visited = True
@@ -665,6 +676,9 @@ if page == "🏠 Home":
         <p style="color:#BF360C; font-style:italic;">
             "Setiap gambar memiliki cerita – biarkan kami membantu Anda menceritakannya."
         </p>
+        <p>📌 <b>Keterangan:</b> Halaman ini adalah pintu masuk utama. 
+        Gunakan menu di sidebar untuk mengakses fitur pengolahan gambar. 
+        Selamat berkarya! 🌸</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -688,17 +702,7 @@ if page == "🏠 Home":
     </div>
     """, unsafe_allow_html=True)
 
-    # --- KETERANGAN TAMBAHAN DI BAWAH HOME ---
-    st.markdown("""
-    <div class="footer-note">
-        <p>📌 <b>Keterangan:</b> Halaman ini adalah pintu masuk utama. 
-        Gunakan menu di sidebar untuk mengakses fitur pengolahan gambar. 
-        Selamat berkarya! 🌸</p>
-    </div>
-    """, unsafe_allow_html=True)
-
 elif page == "🌫️ Grayscale":
-    # ==================== GRAYSCALE ====================
     if not st.session_state.grayscale_visited:
         st.balloons()
         st.session_state.grayscale_visited = True
@@ -723,83 +727,88 @@ elif page == "🌫️ Grayscale":
         <p style="color:#880E4F; font-style:italic;">
             "Terkadang, hitam-putih justru lebih hidup."
         </p>
+        <p>📌 <b>Keterangan:</b> Fitur ini mengubah gambar berwarna menjadi hitam-putih (grayscale). 
+        Hasilnya dapat diunduh dalam format PNG. Cocok untuk efek klasik dan penghematan ukuran file.</p>
     </div>
     """, unsafe_allow_html=True)
 
     uploaded_file = st.file_uploader(
         "📤 Unggah gambar (JPG, PNG, WEBP)",
         type=["jpg", "jpeg", "png", "webp"],
-        accept_multiple_files=False
+        accept_multiple_files=False,
+        key="grayscale_uploader"
     )
 
+    # Inisialisasi session state
+    if "grayscale_done" not in st.session_state:
+        st.session_state.grayscale_done = False
+    if "gray_image" not in st.session_state:
+        st.session_state.gray_image = None
+    if "orig_image" not in st.session_state:
+        st.session_state.orig_image = None
+
+    # Reset jika file baru
     if uploaded_file is not None:
-        image = Image.open(uploaded_file)
-        col_img1, col_img2 = st.columns(2, gap="medium")
+        if st.session_state.orig_image is None:
+            st.session_state.orig_image = Image.open(uploaded_file)
+            st.session_state.grayscale_done = False
+            st.session_state.gray_image = None
 
-        with col_img1:
-            st.markdown('<div class="image-card">', unsafe_allow_html=True)
-            st.markdown("### 🖼️ Gambar Asli")
-            st.image(image, use_container_width=True)
-            st.markdown(f"*Ukuran: {image.width} x {image.height} px*")
-            st.markdown('</div>', unsafe_allow_html=True)
+    if uploaded_file is not None:
+        # Tombol konversi
+        if st.button("🔄 Konversi ke Grayscale", use_container_width=True):
+            if st.session_state.orig_image is not None:
+                gray = st.session_state.orig_image.convert("L").convert("RGB")
+                st.session_state.gray_image = gray
+                st.session_state.grayscale_done = True
+                st.rerun()
 
-        with col_img2:
-            if st.button("🔄 Konversi ke Grayscale", use_container_width=True):
-                gray_image = image.convert("L")
-                gray_rgb = gray_image.convert("RGB")
-
-                st.markdown('<div class="image-card">', unsafe_allow_html=True)
-                st.markdown("### ⚫ Hasil Grayscale")
-                st.image(gray_rgb, use_container_width=True)
-                st.markdown(f"*Ukuran: {gray_rgb.width} x {gray_rgb.height} px*")
+        # Tampilkan hasil jika sudah diproses
+        if st.session_state.grayscale_done and st.session_state.gray_image is not None:
+            col1, col2 = st.columns(2, gap="medium")
+            with col1:
+                st.markdown('<div class="result-container">', unsafe_allow_html=True)
+                st.markdown('<div class="pink-badge">🖼️ Gambar Asli</div>', unsafe_allow_html=True)
+                st.image(st.session_state.orig_image, use_container_width=True)
+                st.caption(f"Ukuran: {st.session_state.orig_image.width} x {st.session_state.orig_image.height} px")
                 st.markdown('</div>', unsafe_allow_html=True)
 
-                buf = io.BytesIO()
-                gray_rgb.save(buf, format="PNG")
-                byte_im = buf.getvalue()
-                b64 = base64.b64encode(byte_im).decode()
-                href = f'<a href="data:image/png;base64,{b64}" download="grayscale.png" style="text-decoration:none;">'
-                href += '<button class="download-btn">⬇️ Download Hasil</button></a>'
-                st.markdown(href, unsafe_allow_html=True)
+            with col2:
+                st.markdown('<div class="result-container">', unsafe_allow_html=True)
+                st.markdown('<div class="pink-badge">⚫ Hasil Grayscale</div>', unsafe_allow_html=True)
+                st.image(st.session_state.gray_image, use_container_width=True)
+                st.caption(f"Ukuran: {st.session_state.gray_image.width} x {st.session_state.gray_image.height} px")
+                st.markdown('</div>', unsafe_allow_html=True)
 
-                st.success("🌸 Semoga membantu, terima kasih banyak telah menggunakan jasa layanan kami, salam cinta ❤️")
-                st.balloons()
+            # --- DI LUAR KOLOM (FULL WIDTH / KIRI) ---
+            # Tombol download
+            buf = io.BytesIO()
+            st.session_state.gray_image.save(buf, format="PNG")
+            b64 = base64.b64encode(buf.getvalue()).decode()
+            href = f'<a href="data:image/png;base64,{b64}" download="grayscale.png" style="text-decoration:none;">'
+            href += '<button class="download-btn">⬇️ Download Hasil</button></a>'
+            st.markdown(href, unsafe_allow_html=True)
 
-                st.markdown("""
-                <div class="info-box">
-                    <b>💡 Manfaat Grayscale:</b><br>
-                    • Mengurangi kompleksitas warna, fokus pada bentuk dan tekstur.<br>
-                    • Menghemat ruang penyimpanan (ukuran file lebih kecil).<br>
-                    • Memberikan nuansa artistik dan klasik pada foto.
-                </div>
-                """, unsafe_allow_html=True)
+            st.success("🌸 Semoga membantu, terima kasih banyak telah menggunakan jasa layanan kami, salam cinta ❤️")
+            st.balloons()
+
+            st.markdown("""
+            <div class="info-box">
+                <b>💡 Manfaat Grayscale:</b><br>
+                • Mengurangi kompleksitas warna, fokus pada bentuk dan tekstur.<br>
+                • Menghemat ruang penyimpanan (ukuran file lebih kecil).<br>
+                • Memberikan nuansa artistik dan klasik pada foto.
+            </div>
+            """, unsafe_allow_html=True)
 
     else:
         st.markdown("""
         <div style="text-align:center; padding:2rem 0;">
             <p style="font-size:1.2rem; color:#6A1B4D;">👆 Unggah gambar untuk mulai mengubahnya menjadi hitam-putih</p>
-            <p style="color:#AD1457; opacity:0.7;">Atau lihat contoh di bawah ini:</p>
         </div>
         """, unsafe_allow_html=True)
 
-        example_img = Image.new('RGB', (400, 300), color='#FCE4EC')
-        draw = ImageDraw.Draw(example_img)
-        draw.rectangle([50, 50, 150, 150], fill='#EC407A')
-        draw.rectangle([200, 50, 300, 150], fill='#42A5F5')
-        draw.rectangle([50, 180, 150, 280], fill='#66BB6A')
-        draw.rectangle([200, 180, 300, 280], fill='#FFA726')
-        st.image(example_img, caption="Contoh gambar (unggah gambar Anda sendiri untuk hasil nyata)", use_container_width=True)
-
-    # --- KETERANGAN TAMBAHAN DI BAWAH GRAYSCALE ---
-    st.markdown("""
-    <div class="footer-note">
-        <p>📌 <b>Keterangan:</b> Fitur ini mengubah gambar berwarna menjadi hitam-putih (grayscale). 
-        Hasilnya dapat diunduh dalam format PNG. Cocok untuk efek klasik dan penghematan ukuran file.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
 elif page == "🗜️ Kompresi":
-    # ==================== KOMPRESI PCA WARNA (RGB) - TIDAK DIUBAH KE GRAYSCALE ====================
     if not st.session_state.kompresi_visited:
         st.balloons()
         st.session_state.kompresi_visited = True
@@ -824,6 +833,8 @@ elif page == "🗜️ Kompresi":
         <p style="color:#1565C0; font-style:italic;">
             "Warna adalah jiwa gambar – kompresi tanpa menghilangkan keindahannya."
         </p>
+        <p>📌 <b>Keterangan:</b> Kompresi PCA diterapkan pada setiap kanal warna (R, G, B) secara terpisah. 
+        Atur jumlah komponen (k) atau persentase varians yang diinginkan. Metrik kualitas (SSIM, PSNR) dan kurva akumulasi membantu mengevaluasi hasil.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -834,12 +845,10 @@ elif page == "🗜️ Kompresi":
     )
 
     if uploaded_file is not None:
-        # Baca gambar RGB
         image = Image.open(uploaded_file).convert("RGB")
         img_array = np.array(image, dtype=np.float32)
         h, w, c = img_array.shape  # c = 3
 
-        # Pilihan mode: berdasarkan jumlah komponen (k) atau persentase varians
         mode = st.radio(
             "Pilih mode pengaturan kompresi:",
             ["Jumlah komponen (k)", "Persentase varians"],
@@ -847,7 +856,7 @@ elif page == "🗜️ Kompresi":
             key="kompresi_mode"
         )
 
-        max_k = min(h, w)  # batas maksimum k (tidak boleh lebih dari dimensi)
+        max_k = min(h, w)
 
         if mode == "Jumlah komponen (k)":
             k = st.slider(
@@ -859,7 +868,7 @@ elif page == "🗜️ Kompresi":
                 key="k_slider"
             )
             variance_target = None
-        else:  # Persentase varians
+        else:
             variance_target = st.slider(
                 "Persentase varians yang dipertahankan (%)",
                 min_value=50,
@@ -872,9 +881,7 @@ elif page == "🗜️ Kompresi":
 
         if st.button("🚀 Kompresi dengan PCA", use_container_width=True):
             try:
-                # Tentukan k jika mode persentase varians
                 if mode == "Persentase varians":
-                    # Fit PCA pada channel R untuk mendapatkan explained variance
                     pca_full = PCA()
                     pca_full.fit(img_array[:, :, 0])
                     cumsum = np.cumsum(pca_full.explained_variance_ratio_)
@@ -883,59 +890,50 @@ elif page == "🗜️ Kompresi":
                         k = max_k
                     st.info(f"Untuk mempertahankan {variance_target*100:.0f}% varians, diperlukan k = {k} komponen.")
 
-                # Pastikan k tidak melebihi dimensi
                 if k > max_k:
                     k = max_k
                     st.warning(f"k dibatasi hingga {max_k} karena dimensi gambar.")
 
-                # Lakukan PCA pada setiap channel dengan k komponen
                 channels_recon = []
                 for i in range(3):
-                    channel = img_array[:, :, i]  # shape (h, w)
+                    channel = img_array[:, :, i]
                     pca = PCA(n_components=k)
-                    reduced = pca.fit_transform(channel)  # (h, k)
-                    recon = pca.inverse_transform(reduced)  # (h, w)
+                    reduced = pca.fit_transform(channel)
+                    recon = pca.inverse_transform(reduced)
                     channels_recon.append(recon)
 
-                # Gabungkan channel
-                reconstructed = np.stack(channels_recon, axis=2)  # (h, w, 3)
+                reconstructed = np.stack(channels_recon, axis=2)
                 reconstructed = np.clip(reconstructed, 0, 255).astype(np.uint8)
                 img_reconstructed = Image.fromarray(reconstructed, mode='RGB')
 
-                # Hitung metrik kualitas (multichannel)
                 img_norm = img_array / 255.0
                 recon_norm = reconstructed / 255.0
-                # SSIM dengan channel_axis=2
                 ssim_val = ssim(img_norm, recon_norm, channel_axis=2, data_range=1.0)
-                # PSNR rata-rata per channel
                 psnr_vals = []
                 for i in range(3):
                     psnr_vals.append(psnr(img_norm[:, :, i], recon_norm[:, :, i], data_range=1.0))
                 psnr_val = np.mean(psnr_vals)
 
-                # Ukuran dan penghematan (perkiraan)
                 ukuran_asli = h * w * 3
-                ukuran_baru = (h * k + k * w) * 3  # koefisien + komponen untuk 3 channel
+                ukuran_baru = (h * k + k * w) * 3
                 rasio = ukuran_baru / ukuran_asli
                 penghematan = (1 - rasio) * 100
 
-                # Tampilkan gambar
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.markdown('<div class="image-card">', unsafe_allow_html=True)
-                    st.markdown("### 🖼️ Gambar Asli (RGB)")
+                    st.markdown('<div class="result-container">', unsafe_allow_html=True)
+                    st.markdown('<div class="pink-badge">🖼️ Gambar Asli (RGB)</div>', unsafe_allow_html=True)
                     st.image(image, use_container_width=True)
-                    st.markdown(f"*Ukuran: {w} x {h} px*")
+                    st.caption(f"Ukuran: {w} x {h} px")
                     st.markdown('</div>', unsafe_allow_html=True)
 
                 with col2:
-                    st.markdown('<div class="image-card">', unsafe_allow_html=True)
-                    st.markdown(f"### 🗜️ Hasil Kompresi (k={k})")
+                    st.markdown('<div class="result-container">', unsafe_allow_html=True)
+                    st.markdown(f'<div class="pink-badge">🗜️ Hasil Kompresi (k={k})</div>', unsafe_allow_html=True)
                     st.image(img_reconstructed, use_container_width=True)
-                    st.markdown(f"*Ukuran: {w} x {h} px*")
+                    st.caption(f"Ukuran: {w} x {h} px")
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                # Tombol download
                 buf = io.BytesIO()
                 img_reconstructed.save(buf, format="PNG")
                 byte_im = buf.getvalue()
@@ -944,7 +942,6 @@ elif page == "🗜️ Kompresi":
                 href += '<button class="download-btn">⬇️ Download Hasil Kompresi</button></a>'
                 st.markdown(href, unsafe_allow_html=True)
 
-                # --- Metrik Kualitas ---
                 st.markdown("---")
                 st.markdown("### 📊 Metrik Kualitas")
                 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
@@ -953,7 +950,6 @@ elif page == "🗜️ Kompresi":
                 col_m3.metric("Penghematan", f"{penghematan:.1f}%")
                 col_m4.metric("Rasio Kompresi", f"{rasio:.4f}")
 
-                # Detail kompresi
                 st.markdown("### 📋 Detail Kompresi")
                 st.markdown(f"""
                 <div class="detail-comp">
@@ -966,7 +962,6 @@ elif page == "🗜️ Kompresi":
                 </div>
                 """, unsafe_allow_html=True)
 
-                # --- Kesimpulan Kualitas Kompresi ---
                 st.markdown("### 📝 Kesimpulan Kualitas Kompresi")
                 if ssim_val > 0.95 and penghematan > 30:
                     kesimpulan = "✅ **Kompresi sangat baik!** Gambar terkompresi memiliki kualitas hampir sama dengan asli (SSIM > 0.95) dengan penghematan ukuran yang signifikan (>30%)."
@@ -978,21 +973,18 @@ elif page == "🗜️ Kompresi":
                     kesimpulan = "❌ **Kompresi kurang baik.** Kualitas visual menurun signifikan (SSIM ≤ 0.70). Sebaiknya naikkan jumlah komponen (k) untuk hasil lebih baik."
                 st.markdown(f'<div class="info-box">{kesimpulan}</div>', unsafe_allow_html=True)
 
-                # Tambahan keterangan interpretasi metrik
                 st.markdown("""
                 <div style="background: #FCE4EC; padding: 1rem; border-radius: 12px; margin-top: 1rem; border: 1px solid #EC407A;">
                     <p style="margin:0;"><b>💡 Interpretasi Metrik:</b><br>
-                    • <b>SSIM</b> (Structural Similarity) – mendekati 1 berarti sangat mirip dengan asli.<br>
-                    • <b>PSNR</b> (Peak Signal-to-Noise Ratio) – > 40 dB biasanya kualitas sangat baik.<br>
-                    • <b>Penghematan</b> – persentase pengurangan ukuran (positif = lebih kecil).<br>
-                    • <b>Rasio kompresi</b> – nilai < 1 berarti ukuran berkurang.
+                    • <b>SSIM</b> – mendekati 1 berarti sangat mirip dengan asli.<br>
+                    • <b>PSNR</b> – > 40 dB biasanya kualitas sangat baik.<br>
+                    • <b>Penghematan</b> – persentase pengurangan ukuran.<br>
+                    • <b>Rasio kompresi</b> – < 1 berarti ukuran berkurang.
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
 
-                # --- Kurva Akumulasi Informasi PCA (channel R) ---
                 st.markdown("### 📈 Kurva Akumulasi Informasi PCA (Channel R)")
-                # Fit PCA full pada channel R untuk kurva
                 pca_full = PCA()
                 pca_full.fit(img_array[:, :, 0])
                 cumsum_var = np.cumsum(pca_full.explained_variance_ratio_)
@@ -1014,18 +1006,13 @@ elif page == "🗜️ Kompresi":
                 st.error(f"Terjadi kesalahan: {e}")
 
     else:
-        st.info("👆 Unggah gambar untuk memulai kompresi.")
-
-    # --- KETERANGAN TAMBAHAN DI BAWAH KOMPRESI ---
-    st.markdown("""
-    <div class="footer-note">
-        <p>📌 <b>Keterangan:</b> Kompresi PCA diterapkan pada setiap kanal warna (R, G, B) secara terpisah. 
-        Atur jumlah komponen (k) atau persentase varians yang diinginkan. Metrik kualitas (SSIM, PSNR) dan kurva akumulasi membantu mengevaluasi hasil.</p>
-    </div>
-    """, unsafe_allow_html=True)
+        st.markdown("""
+        <div style="text-align:center; padding:2rem 0;">
+            <p style="font-size:1.2rem; color:#6A1B4D;">👆 Unggah gambar untuk memulai kompresi</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 elif page == "🔍 Deteksi":
-    # ==================== DETEKSI KEMIRIPAN DENGAN PCA (EIGENFACES) + COSINE SIMILARITY ====================
     if not st.session_state.deteksi_visited:
         st.balloons()
         st.session_state.deteksi_visited = True
@@ -1051,45 +1038,71 @@ elif page == "🔍 Deteksi":
         <p style="color:#880E4F; font-style:italic;">
             "Setiap wajah unik, tapi kecocokan bisa ditemukan."
         </p>
+        <p>📌 <b>Keterangan:</b> Deteksi kemiripan menggunakan PCA (Eigenfaces) dan Cosine Similarity. 
+        Upload data latih (ZIP) untuk hasil lebih akurat, atau biarkan sistem menggunakan data latih default LFW.</p>
     </div>
     """, unsafe_allow_html=True)
 
-    # Upload dua gambar
+    if "deteksi_model_loaded" not in st.session_state:
+        st.session_state.deteksi_model_loaded = False
+        st.session_state.deteksi_pca_model = None
+        st.session_state.deteksi_X_train = None
+
+    if not st.session_state.deteksi_model_loaded:
+        with st.spinner("⏳ Memuat dataset LFW untuk data latih default... Tunggu yaa ^^"):
+            try:
+                lfw = fetch_lfw_people(min_faces_per_person=5, resize=0.4, color=False)
+                unique_labels = np.unique(lfw.target)
+                valid_labels = [label for label in unique_labels if np.sum(lfw.target == label) >= 5]
+                if len(valid_labels) >= 2:
+                    selected = valid_labels[:2]
+                    X_train = []
+                    for label in selected:
+                        idx = np.where(lfw.target == label)[0][:5]
+                        for i in idx:
+                            img = cv2.resize(lfw.images[i], (100, 100)).flatten() / 255.0
+                            X_train.append(img)
+                    X_train = np.array(X_train)
+                    k = min(50, len(X_train)-1)
+                    pca = PCA(n_components=k)
+                    pca.fit(X_train)
+                    st.session_state.deteksi_pca_model = pca
+                    st.session_state.deteksi_X_train = X_train
+                    st.session_state.deteksi_model_loaded = True
+                    st.success(f"✅ Data latih default LFW dimuat ({len(X_train)} foto dari 2 orang)")
+                else:
+                    st.warning("⚠️ Dataset LFW tidak mencukupi (minimal 2 orang dengan 5 foto). Upload data latih sendiri.")
+            except Exception as e:
+                st.warning(f"Gagal memuat LFW: {e}. Upload data latih sendiri.")
+
+    st.markdown("---")
+    st.markdown("#### 📂 Data Latih")
+    data_mode = st.radio(
+        "Pilih sumber data latih:",
+        ["Gunakan data latih default (LFW)", "Upload file ZIP berisi gambar wajah"],
+        horizontal=True,
+        key="data_mode"
+    )
+
+    uploaded_zip = None
+    if data_mode == "Upload file ZIP berisi gambar wajah":
+        uploaded_zip = st.file_uploader("Unggah file ZIP", type=["zip"], key="train_zip_deteksi")
+        if uploaded_zip is not None:
+            st.success("✅ File ZIP berhasil diunggah.")
+
     col_upload1, col_upload2 = st.columns(2)
     with col_upload1:
-        img1 = st.file_uploader("📤 Foto Pertama", type=["jpg", "jpeg", "png"], key="img1")
+        img1 = st.file_uploader("📤 Foto Pertama", type=["jpg", "jpeg", "png"], key="img1_deteksi")
     with col_upload2:
-        img2 = st.file_uploader("📤 Foto Kedua", type=["jpg", "jpeg", "png"], key="img2")
+        img2 = st.file_uploader("📤 Foto Kedua", type=["jpg", "jpeg", "png"], key="img2_deteksi")
 
-    # Upload data latih (opsional)
-    st.markdown("---")
-    st.markdown("#### 📂 Data Latih (Opsional)")
-    st.markdown("Upload folder berisi gambar wajah untuk melatih PCA. Jika tidak diisi, akan digunakan dua gambar yang dibandingkan (dengan augmentasi).")
-    uploaded_zip = st.file_uploader("Unggah file ZIP berisi gambar wajah", type=["zip"], key="train_zip")
-
-    # Parameter
     col_param1, col_param2 = st.columns(2)
     with col_param1:
-        n_components = st.slider(
-            "Jumlah komponen PCA (k)",
-            min_value=2,
-            max_value=50,
-            value=9,
-            step=1,
-            help="Semakin banyak komponen, semakin detail fitur wajah yang digunakan."
-        )
+        n_components = st.slider("Jumlah komponen PCA (k)", 2, 50, 9, 1, key="n_comp_deteksi")
     with col_param2:
-        threshold = st.slider(
-            "Threshold (batas kemiripan %)",
-            min_value=0,
-            max_value=100,
-            value=70,
-            step=5,
-            help="Jika skor kemiripan ≥ threshold, dianggap mirip."
-        ) / 100.0
+        threshold = st.slider("Threshold kemiripan (%)", 0, 100, 70, 5, key="thresh_deteksi") / 100.0
 
     if img1 is not None and img2 is not None:
-        # Tampilkan dua gambar
         col_show1, col_show2 = st.columns(2)
         with col_show1:
             st.image(img1, caption="Foto Pertama", use_container_width=True)
@@ -1098,21 +1111,21 @@ elif page == "🔍 Deteksi":
 
         if st.button("🔎 Hitung Kemiripan", use_container_width=True):
             try:
-                # Baca dan resize gambar ke ukuran yang sama (misal 100x100)
                 size = (100, 100)
                 im1 = Image.open(img1).convert("L").resize(size)
                 im2 = Image.open(img2).convert("L").resize(size)
                 arr1 = np.array(im1, dtype=np.float32).flatten() / 255.0
                 arr2 = np.array(im2, dtype=np.float32).flatten() / 255.0
 
-                # Siapkan data latih
-                train_vectors = []
-                if uploaded_zip is not None:
-                    # Ekstrak zip
+                train_vectors = None
+                if data_mode == "Gunakan data latih default (LFW)" and st.session_state.deteksi_model_loaded:
+                    train_vectors = st.session_state.deteksi_X_train
+                    pca = st.session_state.deteksi_pca_model
+                elif data_mode == "Upload file ZIP berisi gambar wajah" and uploaded_zip is not None:
                     with tempfile.TemporaryDirectory() as tmpdir:
                         with zipfile.ZipFile(uploaded_zip, 'r') as zip_ref:
                             zip_ref.extractall(tmpdir)
-                        # Baca semua gambar di folder
+                        train_vectors = []
                         for root, _, files in os.walk(tmpdir):
                             for file in files:
                                 if file.lower().endswith(('.png', '.jpg', '.jpeg')):
@@ -1123,89 +1136,89 @@ elif page == "🔍 Deteksi":
                                         train_vectors.append(vec)
                                     except:
                                         continue
-                    if len(train_vectors) < 2:
-                        st.warning("Data latih kurang dari 2 gambar. Gunakan data latih default.")
-                        train_vectors = []
-                
-                # Jika tidak ada data latih atau kurang, gunakan dua gambar + augmentasi
-                if len(train_vectors) < 2:
-                    # Buat data sintetis dengan augmentasi (flip, rotasi kecil, noise)
-                    train_vectors = [arr1, arr2]
-                    # Tambahkan variasi dari arr1 dan arr2
-                    for arr in [arr1, arr2]:
-                        for _ in range(5):
-                            noise = np.random.normal(0, 0.05, arr.shape)
-                            train_vectors.append(np.clip(arr + noise, 0, 1))
-                        # flip horizontal (dengan reshape dulu)
-                        reshaped = arr.reshape(100, 100)
-                        flipped = np.fliplr(reshaped).flatten()
-                        train_vectors.append(flipped)
-                    st.info("ℹ️ Tidak ada data latih. Digunakan 2 gambar + augmentasi (flip & noise) untuk melatih PCA.")
-                
-                # Ubah ke numpy array
-                train_vectors = np.array(train_vectors)
-                # PCA
-                pca = PCA(n_components=min(n_components, len(train_vectors)-1, len(train_vectors[0])))
-                pca.fit(train_vectors)
-                # Proyeksikan dua gambar
+                        if len(train_vectors) < 2:
+                            st.error("Data latih dari ZIP kurang dari 2 gambar. Gagal melatih PCA.")
+                            st.stop()
+                        train_vectors = np.array(train_vectors)
+                        k = min(n_components, len(train_vectors)-1, len(train_vectors[0]))
+                        pca = PCA(n_components=k)
+                        pca.fit(train_vectors)
+                else:
+                    st.error("Tidak ada data latih yang valid. Pilih sumber data latih atau upload ZIP.")
+                    st.stop()
+
                 vec1_pca = pca.transform([arr1])[0]
                 vec2_pca = pca.transform([arr2])[0]
-                # Cosine similarity
                 sim = cosine_similarity([vec1_pca], [vec2_pca])[0][0]
-                persentase = sim * 100
+                kemiripan = sim
                 var_ratio = pca.explained_variance_ratio_.sum() * 100
+                ambang = threshold
 
-                # Tampilkan hasil
-                st.markdown('<div class="result-card">', unsafe_allow_html=True)
-                st.markdown(f'<div class="score">{persentase:.2f}%</div>', unsafe_allow_html=True)
-                if persentase >= threshold * 100:
-                    st.markdown(f'<div class="label">✅ MIRIP! (≥ {threshold*100:.0f}%)</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<div class="label">❌ TIDAK MIRIP (< {threshold*100:.0f}%)</div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="detail">Komponen PCA: {pca.n_components}</div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="detail">Varians: {var_ratio:.1f}%</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                st.subheader("Hasil Deteksi Foto Kamu ^^")
+                kolom_r1, kolom_r2, kolom_r3 = st.columns([2, 2, 1.5])
+                with kolom_r1:
+                    st.markdown('<div class="result-container">', unsafe_allow_html=True)
+                    st.markdown('<div class="pink-badge">📸 Foto Pertama</div>', unsafe_allow_html=True)
+                    st.image(img1, caption="Foto Asli", use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                with kolom_r2:
+                    st.markdown('<div class="result-container">', unsafe_allow_html=True)
+                    st.markdown('<div class="pink-badge">📸 Foto Kedua</div>', unsafe_allow_html=True)
+                    st.image(img2, caption="Foto Asli", use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                with kolom_r3:
+                    st.markdown('<div class="result-container">', unsafe_allow_html=True)
+                    st.markdown('<div class="pink-badge">Skor Kemiripan Foto!!</div>', unsafe_allow_html=True)
+                    st.markdown(f"<h1 style='color:#AD1457;font-size:42px;'>{kemiripan:.2%}</h1>", unsafe_allow_html=True)
+                    if kemiripan >= ambang:
+                        st.success("**WAH MIRIP!! :D**")
+                        st.balloons()
+                    elif kemiripan >= 0.50:
+                        st.warning("**HMM CUKUP MIRIP LAH YA ;D**")
+                    else:
+                        st.error("**TIDAK MIRIP ^^**")
+                    st.caption(f"Komponen PCA: {pca.n_components_}")
+                    st.caption(f"Varians: {np.sum(pca.explained_variance_ratio_)*100:.1f}%")
+                    st.markdown('</div>', unsafe_allow_html=True)
 
-                # Grafik akumulasi informasi PCA
-                st.markdown("### 📈 Grafik Akumulasi Informasi PCA")
-                cumsum_var = np.cumsum(pca.explained_variance_ratio_)
-                fig, ax = plt.subplots(figsize=(8, 5))
-                ax.plot(range(1, len(cumsum_var)+1), cumsum_var, 'b-', linewidth=2, label='Kurva Akumulasi')
-                ax.axhline(y=0.95, color='r', linestyle='--', alpha=0.7, label='95% Varians')
-                ax.axhline(y=threshold, color='g', linestyle='--', alpha=0.7, label=f'Threshold {threshold*100:.0f}%')
-                ax.axvline(x=pca.n_components, color='orange', linestyle=':', alpha=0.7, label=f'k = {pca.n_components}')
-                ax.set_xlabel('Jumlah Komponen (k)')
-                ax.set_ylabel('Akumulasi Varians')
-                ax.set_title('Kurva Akumulasi Informasi PCA')
-                ax.grid(True, alpha=0.3)
-                ax.legend()
-                st.pyplot(fig)
-                plt.close(fig)
-
-                # Penjelasan grafik
-                st.markdown("""
-                <div style="background: #FCE4EC; padding: 1rem; border-radius: 12px; margin-top: 1rem; border: 1px solid #EC407A;">
-                    <p style="margin:0;"><b>💡 Cara baca grafik:</b><br>
-                    • <b>Garis biru</b> → akumulasi varians. Semakin tinggi, semakin banyak informasi yang dipertahankan.<br>
-                    • <b>Garis merah putus-putus</b> → 95% varians data sudah terwakili.<br>
-                    • <b>Garis hijau putus-putus</b> → threshold kemiripan yang Anda atur.<br>
-                    • <b>Garis oranye</b> → jumlah komponen PCA yang digunakan (k).<br>
-                    Dengan k yang cukup, kita bisa meringkas wajah menjadi beberapa angka tanpa kehilangan banyak informasi.
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("---")
+                kolom_graf, kolom_exp = st.columns([1, 1])
+                with kolom_graf:
+                    st.subheader("Grafik Akumulasi Informasi")
+                    varians = np.cumsum(pca.explained_variance_ratio_)
+                    fig, ax = plt.subplots(figsize=(5, 3.5))
+                    ax.plot(range(1, len(varians)+1), varians, 'bo-', linewidth=2, markersize=5)
+                    ax.axhline(y=0.95, color='red', linestyle='--', linewidth=2, label='95% Varians')
+                    ax.axhline(y=ambang, color='green', linestyle=':', linewidth=2, label=f'Threshold {ambang:.2f}')
+                    ax.set_xlabel('Jumlah Komponen PCA (k)', fontsize=10)
+                    ax.set_ylabel('Akumulasi Informasi', fontsize=10)
+                    ax.set_title('Kurva Akumulasi Informasi PCA', fontsize=11)
+                    ax.grid(True, alpha=0.3)
+                    ax.legend(loc='lower right', fontsize=8)
+                    ax.set_ylim(0, 1.05)
+                    st.pyplot(fig)
+                with kolom_exp:
+                    st.subheader("Penjelasan Grafik!!")
+                    st.markdown("""
+                    <div class="explanation-box">
+                    Grafik ini menunjukkan seberapa banyak <b>informasi wajah</b> yang bisa dipertahankan jika kita menggunakan sejumlah komponen PCA (k).
+                    <br><br>
+                    <b>🔵 Garis biru</b> → kurva akumulasi varians. Semakin tinggi, semakin baik.<br>
+                    <b>🔴 Garis merah putus-putus</b> → 95% varians data sudah terwakili.<br>
+                    <b>🟢 Garis hijau titik-titik</b> → <b>Threshold</b> (batas kemiripan) yang kamu atur.
+                    <br><br>
+                    <b>💡 Cara baca:</b><br>
+                    Dari 10.000 pixel wajah, PCA bisa meringkasnya menjadi 50 angka saja tanpa kehilangan banyak informasi. Semakin tinggi garis biru, semakin baik representasi wajahnya.
+                    </div>
+                    """, unsafe_allow_html=True)
 
                 st.balloons()
 
             except Exception as e:
                 st.error(f"Terjadi kesalahan: {e}")
     else:
-        st.info("👆 Upload dua foto wajah untuk membandingkan.")
-
-    # --- KETERANGAN TAMBAHAN DI BAWAH DETEKSI ---
-    st.markdown("""
-    <div class="footer-note">
-        <p>📌 <b>Keterangan:</b> Deteksi kemiripan menggunakan PCA (Eigenfaces) dan Cosine Similarity. 
-        Upload data latih (ZIP) untuk hasil lebih akurat, atau biarkan sistem menggunakan augmentasi otomatis.</p>
-    </div>
-    """, unsafe_allow_html=True)
+        st.markdown("""
+        <div style="text-align:center; padding:2rem 0;">
+            <p style="font-size:1.2rem; color:#6A1B4D;">👆 Upload dua foto wajah untuk membandingkan.</p>
+        </div>
+        """, unsafe_allow_html=True)
