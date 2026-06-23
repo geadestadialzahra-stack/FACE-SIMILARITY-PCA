@@ -1020,8 +1020,8 @@ elif page == "🔍 Deteksi":
     st.markdown("""
     <div class="deteksi-header">
         <div class="love-shower">❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖</div>
-        <h1>🔍 Deteksi Kemiripan Wajah</h1>
-        <p>Bandingkan dua wajah dengan metode PCA (Eigenfaces) dan Cosine Similarity.</p>
+        <h1>🔍 Deteksi Kemiripan Gambar (Universal)</h1>
+        <p>Bandingkan dua gambar menggunakan SSIM, PSNR, dan Cosine Similarity – berlaku untuk semua jenis gambar.</p>
         <div class="love-shower">❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖</div>
     </div>
     """, unsafe_allow_html=True)
@@ -1031,186 +1031,120 @@ elif page == "🔍 Deteksi":
                 padding: 1.5rem; border-radius: 16px; border: 1px solid #F8BBD0; 
                 margin-bottom: 2rem; text-align: center;">
         <p style="font-size:1.2rem; color:#6A1B4D;">
-            ❤️ <b>Cara kerja:</b> PCA mengekstrak fitur utama (eigenfaces) dari data latih (wajah). 
-            Dua wajah yang dibandingkan diproyeksikan ke ruang PCA, lalu dihitung kemiripannya dengan <b>Cosine Similarity</b>.
-            Semakin tinggi skor, semakin mirip kedua wajah.
+            🔍 <b>Cara kerja:</b> Kedua gambar diubah ke ukuran yang sama (100x100 piksel) dan dinormalisasi. 
+            Kemudian dihitung <b>SSIM</b> (kesamaan struktural), <b>PSNR</b> (rasio sinyal‐noise), 
+            <b>Cosine Similarity</b> (kesamaan arah vektor), dan <b>MSE</b> (error kuadrat rata‐rata). 
+            Hasilnya digabung dengan ambang batas yang dapat diatur untuk menentukan apakah gambar <b>MIRIP</b> atau tidak.
         </p>
         <p style="color:#880E4F; font-style:italic;">
-            "Setiap wajah unik, tapi kecocokan bisa ditemukan."
+            "Setiap gambar punya cerita – kami bantu Anda menemukan kecocokannya."
         </p>
-        <p>📌 <b>Keterangan:</b> Deteksi kemiripan menggunakan PCA (Eigenfaces) dan Cosine Similarity. 
-        Upload data latih (ZIP) untuk hasil lebih akurat, atau biarkan sistem menggunakan data latih default LFW.</p>
+        <p>📌 <b>Keterangan:</b> Metode ini tidak bias terhadap jenis objek (manusia, hewan, benda) karena membandingkan struktur piksel dan distribusi warna secara langsung.</p>
     </div>
     """, unsafe_allow_html=True)
 
-    if "deteksi_model_loaded" not in st.session_state:
-        st.session_state.deteksi_model_loaded = False
-        st.session_state.deteksi_pca_model = None
-        st.session_state.deteksi_X_train = None
-
-    if not st.session_state.deteksi_model_loaded:
-        with st.spinner("⏳ Memuat dataset LFW untuk data latih default... Tunggu yaa ^^"):
-            try:
-                lfw = fetch_lfw_people(min_faces_per_person=5, resize=0.4, color=False)
-                unique_labels = np.unique(lfw.target)
-                valid_labels = [label for label in unique_labels if np.sum(lfw.target == label) >= 5]
-                if len(valid_labels) >= 2:
-                    selected = valid_labels[:2]
-                    X_train = []
-                    for label in selected:
-                        idx = np.where(lfw.target == label)[0][:5]
-                        for i in idx:
-                            img = cv2.resize(lfw.images[i], (100, 100)).flatten() / 255.0
-                            X_train.append(img)
-                    X_train = np.array(X_train)
-                    k = min(50, len(X_train)-1)
-                    pca = PCA(n_components=k)
-                    pca.fit(X_train)
-                    st.session_state.deteksi_pca_model = pca
-                    st.session_state.deteksi_X_train = X_train
-                    st.session_state.deteksi_model_loaded = True
-                    st.success(f"✅ Data latih default LFW dimuat ({len(X_train)} foto dari 2 orang)")
-                else:
-                    st.warning("⚠️ Dataset LFW tidak mencukupi (minimal 2 orang dengan 5 foto). Upload data latih sendiri.")
-            except Exception as e:
-                st.warning(f"Gagal memuat LFW: {e}. Upload data latih sendiri.")
-
-    st.markdown("---")
-    st.markdown("#### 📂 Data Latih")
-    data_mode = st.radio(
-        "Pilih sumber data latih:",
-        ["Gunakan data latih default (LFW)", "Upload file ZIP berisi gambar wajah"],
-        horizontal=True,
-        key="data_mode"
-    )
-
-    uploaded_zip = None
-    if data_mode == "Upload file ZIP berisi gambar wajah":
-        uploaded_zip = st.file_uploader("Unggah file ZIP", type=["zip"], key="train_zip_deteksi")
-        if uploaded_zip is not None:
-            st.success("✅ File ZIP berhasil diunggah.")
-
     col_upload1, col_upload2 = st.columns(2)
     with col_upload1:
-        img1 = st.file_uploader("📤 Foto Pertama", type=["jpg", "jpeg", "png"], key="img1_deteksi")
+        img1 = st.file_uploader("📤 Gambar Pertama", type=["jpg", "jpeg", "png"], key="img1_deteksi")
     with col_upload2:
-        img2 = st.file_uploader("📤 Foto Kedua", type=["jpg", "jpeg", "png"], key="img2_deteksi")
+        img2 = st.file_uploader("📤 Gambar Kedua", type=["jpg", "jpeg", "png"], key="img2_deteksi")
 
     col_param1, col_param2 = st.columns(2)
     with col_param1:
-        n_components = st.slider("Jumlah komponen PCA (k)", 2, 50, 9, 1, key="n_comp_deteksi")
+        threshold_ssim = st.slider("Threshold SSIM (0–1)", 0.0, 1.0, 0.7, 0.05, key="thresh_ssim")
     with col_param2:
-        threshold = st.slider("Threshold kemiripan (%)", 0, 100, 70, 5, key="thresh_deteksi") / 100.0
+        threshold_cos = st.slider("Threshold Cosine Similarity (-1–1)", -1.0, 1.0, 0.7, 0.05, key="thresh_cos")
 
     if img1 is not None and img2 is not None:
         col_show1, col_show2 = st.columns(2)
         with col_show1:
-            st.image(img1, caption="Foto Pertama", use_container_width=True)
+            st.image(img1, caption="Gambar Pertama", use_container_width=True)
         with col_show2:
-            st.image(img2, caption="Foto Kedua", use_container_width=True)
+            st.image(img2, caption="Gambar Kedua", use_container_width=True)
 
         if st.button("🔎 Hitung Kemiripan", use_container_width=True):
             try:
                 size = (100, 100)
-                im1 = Image.open(img1).convert("L").resize(size)
-                im2 = Image.open(img2).convert("L").resize(size)
-                arr1 = np.array(im1, dtype=np.float32).flatten() / 255.0
-                arr2 = np.array(im2, dtype=np.float32).flatten() / 255.0
+                # Baca dan proses gambar
+                im1 = Image.open(img1).convert("RGB")
+                im2 = Image.open(img2).convert("RGB")
+                # Resize ke ukuran yang sama
+                im1_res = im1.resize(size)
+                im2_res = im2.resize(size)
+                # Konversi ke grayscale untuk SSIM & PSNR
+                im1_gray = im1_res.convert("L")
+                im2_gray = im2_res.convert("L")
+                arr1_gray = np.array(im1_gray, dtype=np.float32) / 255.0
+                arr2_gray = np.array(im2_gray, dtype=np.float32) / 255.0
+                # Flatten untuk cosine similarity dan MSE
+                vec1 = arr1_gray.flatten()
+                vec2 = arr2_gray.flatten()
 
-                train_vectors = None
-                if data_mode == "Gunakan data latih default (LFW)" and st.session_state.deteksi_model_loaded:
-                    train_vectors = st.session_state.deteksi_X_train
-                    pca = st.session_state.deteksi_pca_model
-                elif data_mode == "Upload file ZIP berisi gambar wajah" and uploaded_zip is not None:
-                    with tempfile.TemporaryDirectory() as tmpdir:
-                        with zipfile.ZipFile(uploaded_zip, 'r') as zip_ref:
-                            zip_ref.extractall(tmpdir)
-                        train_vectors = []
-                        for root, _, files in os.walk(tmpdir):
-                            for file in files:
-                                if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                                    try:
-                                        img_path = os.path.join(root, file)
-                                        img = Image.open(img_path).convert("L").resize(size)
-                                        vec = np.array(img, dtype=np.float32).flatten() / 255.0
-                                        train_vectors.append(vec)
-                                    except:
-                                        continue
-                        if len(train_vectors) < 2:
-                            st.error("Data latih dari ZIP kurang dari 2 gambar. Gagal melatih PCA.")
-                            st.stop()
-                        train_vectors = np.array(train_vectors)
-                        k = min(n_components, len(train_vectors)-1, len(train_vectors[0]))
-                        pca = PCA(n_components=k)
-                        pca.fit(train_vectors)
+                # Hitung metrik
+                ssim_val = ssim(arr1_gray, arr2_gray, data_range=1.0)
+                psnr_val = psnr(arr1_gray, arr2_gray, data_range=1.0)
+                cos_sim = cosine_similarity([vec1], [vec2])[0][0]
+                mse_val = np.mean((vec1 - vec2) ** 2)
+
+                # Tentukan kesimpulan
+                if ssim_val >= threshold_ssim and cos_sim >= threshold_cos:
+                    kesimpulan = "✅ MIRIP"
+                    warna = "green"
                 else:
-                    st.error("Tidak ada data latih yang valid. Pilih sumber data latih atau upload ZIP.")
-                    st.stop()
+                    kesimpulan = "❌ TIDAK MIRIP"
+                    warna = "red"
 
-                vec1_pca = pca.transform([arr1])[0]
-                vec2_pca = pca.transform([arr2])[0]
-                sim = cosine_similarity([vec1_pca], [vec2_pca])[0][0]
-                kemiripan = sim
-                var_ratio = pca.explained_variance_ratio_.sum() * 100
-                ambang = threshold
-
-                st.subheader("Hasil Deteksi Foto Kamu ^^")
-                kolom_r1, kolom_r2, kolom_r3 = st.columns([2, 2, 1.5])
-                with kolom_r1:
+                # Tampilkan hasil
+                st.subheader("Hasil Deteksi")
+                col_res1, col_res2, col_res3 = st.columns([2, 2, 1.5])
+                with col_res1:
                     st.markdown('<div class="result-container">', unsafe_allow_html=True)
-                    st.markdown('<div class="pink-badge">📸 Foto Pertama</div>', unsafe_allow_html=True)
-                    st.image(img1, caption="Foto Asli", use_container_width=True)
+                    st.markdown('<div class="pink-badge">📸 Gambar Pertama</div>', unsafe_allow_html=True)
+                    st.image(img1, caption="Asli", use_container_width=True)
                     st.markdown('</div>', unsafe_allow_html=True)
-                with kolom_r2:
+                with col_res2:
                     st.markdown('<div class="result-container">', unsafe_allow_html=True)
-                    st.markdown('<div class="pink-badge">📸 Foto Kedua</div>', unsafe_allow_html=True)
-                    st.image(img2, caption="Foto Asli", use_container_width=True)
+                    st.markdown('<div class="pink-badge">📸 Gambar Kedua</div>', unsafe_allow_html=True)
+                    st.image(img2, caption="Asli", use_container_width=True)
                     st.markdown('</div>', unsafe_allow_html=True)
-                with kolom_r3:
+                with col_res3:
                     st.markdown('<div class="result-container">', unsafe_allow_html=True)
-                    st.markdown('<div class="pink-badge">Skor Kemiripan Foto!!</div>', unsafe_allow_html=True)
-                    st.markdown(f"<h1 style='color:#AD1457;font-size:42px;'>{kemiripan:.2%}</h1>", unsafe_allow_html=True)
-                    if kemiripan >= ambang:
-                        st.success("**WAH MIRIP!! :D**")
-                        st.balloons()
-                    elif kemiripan >= 0.50:
-                        st.warning("**HMM CUKUP MIRIP LAH YA ;D**")
-                    else:
-                        st.error("**TIDAK MIRIP ^^**")
-                    st.caption(f"Komponen PCA: {pca.n_components_}")
-                    st.caption(f"Varians: {np.sum(pca.explained_variance_ratio_)*100:.1f}%")
+                    st.markdown('<div class="pink-badge">📊 Skor Kemiripan</div>', unsafe_allow_html=True)
+                    st.markdown(f"<h2 style='color:{warna};'>{kesimpulan}</h2>", unsafe_allow_html=True)
+                    st.metric("SSIM", f"{ssim_val:.4f}", delta=f"threshold {threshold_ssim:.2f}")
+                    st.metric("PSNR", f"{psnr_val:.2f} dB")
+                    st.metric("Cosine Similarity", f"{cos_sim:.4f}", delta=f"threshold {threshold_cos:.2f}")
+                    st.metric("MSE", f"{mse_val:.6f}")
                     st.markdown('</div>', unsafe_allow_html=True)
 
+                # Grafik perbandingan histogram warna (RGB)
                 st.markdown("---")
-                kolom_graf, kolom_exp = st.columns([1, 1])
-                with kolom_graf:
-                    st.subheader("Grafik Akumulasi Informasi")
-                    varians = np.cumsum(pca.explained_variance_ratio_)
-                    fig, ax = plt.subplots(figsize=(5, 3.5))
-                    ax.plot(range(1, len(varians)+1), varians, 'bo-', linewidth=2, markersize=5)
-                    ax.axhline(y=0.95, color='red', linestyle='--', linewidth=2, label='95% Varians')
-                    ax.axhline(y=ambang, color='green', linestyle=':', linewidth=2, label=f'Threshold {ambang:.2f}')
-                    ax.set_xlabel('Jumlah Komponen PCA (k)', fontsize=10)
-                    ax.set_ylabel('Akumulasi Informasi', fontsize=10)
-                    ax.set_title('Kurva Akumulasi Informasi PCA', fontsize=11)
-                    ax.grid(True, alpha=0.3)
-                    ax.legend(loc='lower right', fontsize=8)
-                    ax.set_ylim(0, 1.05)
-                    st.pyplot(fig)
-                with kolom_exp:
-                    st.subheader("Penjelasan Grafik!!")
-                    st.markdown("""
-                    <div class="explanation-box">
-                    Grafik ini menunjukkan seberapa banyak <b>informasi wajah</b> yang bisa dipertahankan jika kita menggunakan sejumlah komponen PCA (k).
-                    <br><br>
-                    <b>🔵 Garis biru</b> → kurva akumulasi varians. Semakin tinggi, semakin baik.<br>
-                    <b>🔴 Garis merah putus-putus</b> → 95% varians data sudah terwakili.<br>
-                    <b>🟢 Garis hijau titik-titik</b> → <b>Threshold</b> (batas kemiripan) yang kamu atur.
-                    <br><br>
-                    <b>💡 Cara baca:</b><br>
-                    Dari 10.000 pixel wajah, PCA bisa meringkasnya menjadi 50 angka saja tanpa kehilangan banyak informasi. Semakin tinggi garis biru, semakin baik representasi wajahnya.
-                    </div>
-                    """, unsafe_allow_html=True)
+                st.subheader("📊 Perbandingan Histogram Warna (RGB)")
+                # Ambil array RGB
+                arr1_rgb = np.array(im1_res) / 255.0
+                arr2_rgb = np.array(im2_res) / 255.0
+                fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+                colors = ('red', 'green', 'blue')
+                for i, (ax, color) in enumerate(zip(axes, colors)):
+                    ax.hist(arr1_rgb[:, :, i].ravel(), bins=50, alpha=0.5, color=color, label='Gambar 1')
+                    ax.hist(arr2_rgb[:, :, i].ravel(), bins=50, alpha=0.5, color='gray', label='Gambar 2')
+                    ax.set_title(f'Channel {color.capitalize()}')
+                    ax.legend()
+                plt.tight_layout()
+                st.pyplot(fig)
+                plt.close(fig)
+
+                # Penjelasan
+                st.markdown("""
+                <div class="info-box">
+                    <b>💡 Interpretasi Skor:</b><br>
+                    • <b>SSIM</b> – mendekati 1 berarti struktur gambar sangat mirip.<br>
+                    • <b>PSNR</b> – > 40 dB menunjukkan kualitas sangat baik, > 30 dB baik.<br>
+                    • <b>Cosine Similarity</b> – mendekati 1 berarti arah vektor piksel sangat searah (mirip).<br>
+                    • <b>MSE</b> – semakin kecil semakin mirip (0 berarti identik).<br>
+                    <b>Kesimpulan akhir</b> ditentukan oleh threshold SSIM dan Cosine yang Anda atur.
+                </div>
+                """, unsafe_allow_html=True)
 
                 st.balloons()
 
@@ -1219,6 +1153,6 @@ elif page == "🔍 Deteksi":
     else:
         st.markdown("""
         <div style="text-align:center; padding:2rem 0;">
-            <p style="font-size:1.2rem; color:#6A1B4D;">👆 Upload dua foto wajah untuk membandingkan.</p>
+            <p style="font-size:1.2rem; color:#6A1B4D;">👆 Upload dua gambar untuk membandingkan kemiripannya.</p>
         </div>
         """, unsafe_allow_html=True)
