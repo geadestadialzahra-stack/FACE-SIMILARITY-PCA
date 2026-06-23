@@ -8,7 +8,6 @@ import requests
 from urllib.parse import urlparse
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import peak_signal_noise_ratio as psnr
@@ -18,6 +17,7 @@ import zipfile
 import cv2
 import warnings
 warnings.filterwarnings("ignore")
+from sklearn.preprocessing import StandardScaler
 
 # ======================== KONFIGURASI HALAMAN ========================
 st.set_page_config(
@@ -1013,6 +1013,7 @@ elif page == "🗜️ Kompresi":
         </div>
         """, unsafe_allow_html=True)
 
+# ============================== HALAMAN DETEKSI (PERBAIKAN) ==============================
 elif page == "🔍 Deteksi":
     if not st.session_state.deteksi_visited:
         st.balloons()
@@ -1032,15 +1033,15 @@ elif page == "🔍 Deteksi":
                 padding: 1.5rem; border-radius: 16px; border: 1px solid #F8BBD0; 
                 margin-bottom: 2rem; text-align: center;">
         <p style="font-size:1.2rem; color:#6A1B4D;">
-            ❤️ <b>Cara kerja:</b> PCA mengekstrak fitur utama (eigenfaces) dari data latih 
-            (wajah-wajah dari banyak orang). Dua wajah yang dibandingkan diproyeksikan ke ruang PCA, 
-            lalu dihitung kemiripannya dengan <b>Cosine Similarity</b>.
+            ❤️ <b>Cara kerja:</b> Pertama, wajah akan dideteksi dan dipotong secara otomatis. 
+            Kemudian PCA mengekstrak fitur utama (eigenfaces) dari data latih (banyak wajah). 
+            Dua wajah yang dibandingkan diproyeksikan ke ruang PCA, lalu dihitung kemiripannya dengan <b>Cosine Similarity</b>.
         </p>
         <p style="color:#880E4F; font-style:italic;">
-            "Setiap wajah unik, tapi kecocokan bisa ditemukan dengan representasi yang tepat."
+            "Fokus pada wajah – latar belakang tidak penting."
         </p>
-        <p>📌 <b>Keterangan:</b> Data latih default berasal dari dataset LFW (Labeled Faces in the Wild). 
-        Untuk hasil lebih akurat, upload sendiri kumpulan gambar wajah (ZIP).</p>
+        <p>📌 <b>Keterangan:</b> Jika gambar tidak mengandung wajah, akan muncul peringatan. 
+        Data latih default dari LFW (10 orang × 5 gambar) atau bisa upload sendiri.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1078,7 +1079,6 @@ elif page == "🔍 Deteksi":
                             X_train.append(img)
                     X_train = np.array(X_train, dtype=np.float64)
                     
-                    from sklearn.preprocessing import StandardScaler
                     scaler = StandardScaler()
                     X_train_scaled = scaler.fit_transform(X_train)
                     
@@ -1136,22 +1136,59 @@ elif page == "🔍 Deteksi":
     with col_param2:
         threshold = st.slider("Threshold kemiripan (%)", 0, 100, 70, 5, key="thresh_deteksi") / 100.0
 
+    # --- Fungsi deteksi wajah dengan Haar Cascade ---
+    def detect_face(image_np):
+        """Deteksi wajah pada gambar (grayscale) dan return crop wajah (100x100) atau None jika tidak ada."""
+        gray = image_np if len(image_np.shape) == 2 else cv2.cvtColor(image_np, cv2.COLOR_BGR2GRAY)
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        if len(faces) == 0:
+            return None
+        # Ambil wajah terbesar
+        (x, y, w, h) = max(faces, key=lambda rect: rect[2] * rect[3])
+        face = gray[y:y+h, x:x+w]
+        face_resized = cv2.resize(face, (100, 100))
+        return face_resized
+
     # --- Tombol proses ---
     if img1 is not None and img2 is not None:
         col_show1, col_show2 = st.columns(2)
         with col_show1:
-            st.image(img1, caption="Foto Pertama", use_container_width=True)
+            st.image(img1, caption="Foto Pertama (asli)", use_container_width=True)
         with col_show2:
-            st.image(img2, caption="Foto Kedua", use_container_width=True)
+            st.image(img2, caption="Foto Kedua (asli)", use_container_width=True)
 
         if st.button("🔎 Hitung Kemiripan", use_container_width=True):
             try:
-                size = (100, 100)
-                im1 = Image.open(img1).convert("L").resize(size)
-                im2 = Image.open(img2).convert("L").resize(size)
-                arr1 = np.array(im1, dtype=np.float64).flatten()
-                arr2 = np.array(im2, dtype=np.float64).flatten()
+                # Baca gambar sebagai array numpy
+                pil_img1 = Image.open(img1).convert("RGB")
+                pil_img2 = Image.open(img2).convert("RGB")
+                np_img1 = np.array(pil_img1)
+                np_img2 = np.array(pil_img2)
 
+                # Deteksi wajah
+                face1 = detect_face(np_img1)
+                face2 = detect_face(np_img2)
+
+                if face1 is None:
+                    st.error("⚠️ **Tidak terdeteksi wajah pada foto pertama.** Harap upload gambar yang mengandung wajah manusia.")
+                    st.stop()
+                if face2 is None:
+                    st.error("⚠️ **Tidak terdeteksi wajah pada foto kedua.** Harap upload gambar yang mengandung wajah manusia.")
+                    st.stop()
+
+                # Tampilkan wajah yang terdeteksi
+                col_face1, col_face2 = st.columns(2)
+                with col_face1:
+                    st.image(face1, caption="Wajah terdeteksi (Foto 1)", use_container_width=True, clamp=True)
+                with col_face2:
+                    st.image(face2, caption="Wajah terdeteksi (Foto 2)", use_container_width=True, clamp=True)
+
+                # Flatten dan normalisasi
+                arr1 = face1.flatten().astype(np.float64)
+                arr2 = face2.flatten().astype(np.float64)
+
+                # --- Siapkan data latih sesuai pilihan ---
                 if data_mode == "Gunakan data latih default (LFW - lebih banyak sampel)" and st.session_state.deteksi_model_loaded:
                     scaler = st.session_state.deteksi_scaler
                     pca = st.session_state.deteksi_pca_model
@@ -1167,7 +1204,7 @@ elif page == "🔍 Deteksi":
                                 if file.lower().endswith(('.png', '.jpg', '.jpeg')):
                                     try:
                                         img_path = os.path.join(root, file)
-                                        img = Image.open(img_path).convert("L").resize(size)
+                                        img = Image.open(img_path).convert("L").resize((100, 100))
                                         vec = np.array(img, dtype=np.float64).flatten()
                                         train_vectors.append(vec)
                                     except:
@@ -1191,9 +1228,11 @@ elif page == "🔍 Deteksi":
                     st.error("Tidak ada data latih yang valid. Pilih sumber data latih atau upload ZIP.")
                     st.stop()
 
+                # Proyeksi PCA
                 vec1_pca = pca.transform([arr1_scaled])[0]
                 vec2_pca = pca.transform([arr2_scaled])[0]
 
+                # Normalisasi L2 dan cosine similarity
                 norm1 = np.linalg.norm(vec1_pca)
                 norm2 = np.linalg.norm(vec2_pca)
                 if norm1 == 0 or norm2 == 0:
@@ -1205,17 +1244,18 @@ elif page == "🔍 Deteksi":
                 var_ratio = np.sum(pca.explained_variance_ratio_) * 100
                 ambang = threshold
 
+                # Tampilkan hasil
                 st.subheader("Hasil Deteksi Foto Kamu ^^")
                 kolom_r1, kolom_r2, kolom_r3 = st.columns([2, 2, 1.5])
                 with kolom_r1:
                     st.markdown('<div class="result-container">', unsafe_allow_html=True)
-                    st.markdown('<div class="pink-badge">📸 Foto Pertama</div>', unsafe_allow_html=True)
-                    st.image(img1, caption="Foto Asli", use_container_width=True)
+                    st.markdown('<div class="pink-badge">📸 Foto Pertama (cropped)</div>', unsafe_allow_html=True)
+                    st.image(face1, caption="Wajah terdeteksi", use_container_width=True, clamp=True)
                     st.markdown('</div>', unsafe_allow_html=True)
                 with kolom_r2:
                     st.markdown('<div class="result-container">', unsafe_allow_html=True)
-                    st.markdown('<div class="pink-badge">📸 Foto Kedua</div>', unsafe_allow_html=True)
-                    st.image(img2, caption="Foto Asli", use_container_width=True)
+                    st.markdown('<div class="pink-badge">📸 Foto Kedua (cropped)</div>', unsafe_allow_html=True)
+                    st.image(face2, caption="Wajah terdeteksi", use_container_width=True, clamp=True)
                     st.markdown('</div>', unsafe_allow_html=True)
                 with kolom_r3:
                     st.markdown('<div class="result-container">', unsafe_allow_html=True)
@@ -1232,6 +1272,7 @@ elif page == "🔍 Deteksi":
                     st.caption(f"Varians: {var_ratio:.1f}%")
                     st.markdown('</div>', unsafe_allow_html=True)
 
+                # Grafik akumulasi informasi
                 st.markdown("---")
                 kolom_graf, kolom_exp = st.columns([1, 1])
                 with kolom_graf:
