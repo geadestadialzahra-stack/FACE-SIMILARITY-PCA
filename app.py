@@ -1013,7 +1013,7 @@ elif page == "🗜️ Kompresi":
         </div>
         """, unsafe_allow_html=True)
 
-# ============================== HALAMAN DETEKSI (PERBAIKAN AKHIR) ==============================
+# ============================== HALAMAN DETEKSI (FINAL - DENGAN PERTEGAS SKOR) ==============================
 elif page == "🔍 Deteksi":
     if not st.session_state.deteksi_visited:
         st.balloons()
@@ -1023,7 +1023,7 @@ elif page == "🔍 Deteksi":
     <div class="deteksi-header">
         <div class="love-shower">❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖</div>
         <h1>🔍 Deteksi Kemiripan Wajah</h1>
-        <p>Bandingkan dua wajah dengan PCA + Cosine & Euclidean (lebih akurat)</p>
+        <p>Bandingkan dua wajah dengan PCA + Cosine & Euclidean (tegas)</p>
         <div class="love-shower">❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖</div>
     </div>
     """, unsafe_allow_html=True)
@@ -1033,12 +1033,12 @@ elif page == "🔍 Deteksi":
                 padding: 1.5rem; border-radius: 16px; border: 1px solid #F8BBD0; 
                 margin-bottom: 2rem; text-align: center;">
         <p style="font-size:1.2rem; color:#6A1B4D;">
-            ❤️ <b>Metode terbaru:</b> Wajah dideteksi, dicrop, CLAHE, resize 150×150. 
-            Data latih diambil dari <b>SEMUA orang di LFW</b> (≥5 gambar, bisa 100+ orang) untuk representasi lebih luas. 
-            PCA dengan <b>whiten=False</b> dan gabungan <b>60% cosine + 40% jarak Euclidean</b> (tanpa penalti outlier).
+            ❤️ <b>Metode:</b> Wajah dideteksi, dicrop, CLAHE, resize 150×150. 
+            Data latih diambil dari <b>SEMUA orang di LFW</b> (≥5 gambar) untuk representasi luas. 
+            Skor akhir dipertegas dengan fungsi pangkat agar keputusan lebih jelas.
         </p>
         <p style="color:#880E4F; font-style:italic;">
-            "Data latih yang kaya + metrik seimbang = hasil yang adil."
+            "Data latih kaya + metrik seimbang + pertegas = hasil akurat."
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -1064,7 +1064,7 @@ elif page == "🔍 Deteksi":
                 else:
                     X_train = []
                     for label in selected_people:
-                        idx = np.where(lfw.target == label)[0][:5]  # ambil 5 gambar per orang
+                        idx = np.where(lfw.target == label)[0][:5]
                         for i in idx:
                             img = cv2.resize(lfw.images[i], (150, 150))
                             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
@@ -1075,7 +1075,6 @@ elif page == "🔍 Deteksi":
                     scaler = StandardScaler()
                     X_train_scaled = scaler.fit_transform(X_train)
                     
-                    # PCA dengan whiten=False, varians 98%
                     pca_temp = PCA()
                     pca_temp.fit(X_train_scaled)
                     cumsum = np.cumsum(pca_temp.explained_variance_ratio_)
@@ -1086,7 +1085,7 @@ elif page == "🔍 Deteksi":
                     pca = PCA(n_components=k_opt, whiten=False)
                     pca.fit(X_train_scaled)
                     
-                    # Hitung mean jarak Euclidean antar data latih (untuk normalisasi jarak)
+                    # Hitung mean jarak Euclidean antar data latih
                     train_pca = pca.transform(X_train_scaled)
                     dists = []
                     for i in range(len(train_pca)):
@@ -1251,16 +1250,16 @@ elif page == "🔍 Deteksi":
 
                 # Euclidean distance
                 euclidean_dist = np.linalg.norm(vec1_pca - vec2_pca)
-                # Normalisasi jarak menjadi skor kemiripan (semakin kecil jarak, semakin tinggi skor)
-                # Gunakan eksponensial negatif
                 if mean_dist > 0:
                     dist_score = np.exp(-euclidean_dist / mean_dist)
                 else:
                     dist_score = 0.5
 
                 # Gabungan: 60% cosine + 40% jarak
-                final_score = 0.6 * cos_sim + 0.4 * dist_score
-                kemiripan = max(0, min(1, final_score))
+                raw_score = 0.6 * cos_sim + 0.4 * dist_score
+                # PERBAIKAN: pertegas perbedaan dengan pangkat 0.6
+                kemiripan = np.power(raw_score, 0.6)
+                kemiripan = max(0, min(1, kemiripan))
 
                 var_ratio = np.sum(pca.explained_variance_ratio_) * 100
                 ambang = threshold
@@ -1315,11 +1314,11 @@ elif page == "🔍 Deteksi":
                     st.subheader("Penjelasan")
                     st.markdown("""
                     <div class="explanation-box">
-                    <b>📊 Metrik gabungan (60% cosine + 40% jarak):</b><br>
+                    <b>📊 Metrik gabungan + pertegas:</b><br>
                     • <b>Cosine Similarity</b> mengukur arah vektor fitur.<br>
                     • <b>Distance-score</b> = exp(-jarak/mean_dist) – semakin kecil jarak, semakin mirip.<br>
-                    • Dengan data latih yang sangat kaya (semua orang di LFW), PCA belajar variasi wajah global.<br><br>
-                    Hasil lebih akurat dan tidak bias karena tidak ada penalti outlier yang merugikan.
+                    • Skor akhir = (0.6*cos + 0.4*jarak)^0.6 – memperjelas keputusan.<br><br>
+                    Dengan data latih kaya, hasil lebih akurat dan tegas.
                     </div>
                     """, unsafe_allow_html=True)
 
