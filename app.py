@@ -1021,7 +1021,7 @@ elif page == "🔍 Deteksi":
     <div class="deteksi-header">
         <div class="love-shower">❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖</div>
         <h1>🔍 Deteksi Kemiripan Wajah</h1>
-        <p>Bandingkan dua wajah dengan PCA + Cosine Similarity (dengan normalisasi L2).</p>
+        <p>Bandingkan dua wajah dengan PCA + gabungan Cosine & Euclidean similarity.</p>
         <div class="love-shower">❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖</div>
     </div>
     """, unsafe_allow_html=True)
@@ -1031,12 +1031,12 @@ elif page == "🔍 Deteksi":
                 padding: 1.5rem; border-radius: 16px; border: 1px solid #F8BBD0; 
                 margin-bottom: 2rem; text-align: center;">
         <p style="font-size:1.2rem; color:#6A1B4D;">
-            ❤️ <b>Cara kerja:</b> Deteksi wajah dengan <b>Haar Cascade</b>, crop, resize ke 100x100, 
-            histogram equalization, lalu ekstraksi fitur menggunakan <b>PCA</b> yang dilatih pada dataset wajah 
-            (LFW dengan banyak orang). Vektor fitur dinormalisasi L2, lalu dihitung <b>Cosine Similarity</b>.
+            ❤️ <b>Cara kerja:</b> Deteksi wajah + alignment mata → crop → CLAHE → PCA (dari data latih) → 
+            vektor fitur dinormalisasi L2, lalu dihitung <b>Cosine Similarity</b> dan <b>Euclidean Similarity</b> 
+            (digabung 50:50) untuk skor akhir yang lebih akurat.
         </p>
         <p style="color:#880E4F; font-style:italic;">
-            "Setiap wajah unik – hasil ini hanya perkiraan, bukan identifikasi mutlak."
+            "Skor tinggi → wajah sangat mirip (bisa jadi orang yang sama). Skor rendah → jelas berbeda."
         </p>
         <p>📌 <b>Keterangan:</b> Pastikan gambar wajah jelas dan menghadap depan. 
         Jika salah satu tidak terdeteksi wajah, proses tidak dilanjutkan.</p>
@@ -1052,22 +1052,21 @@ elif page == "🔍 Deteksi":
     @st.cache_data
     def load_default_training():
         try:
-            # Ambil dataset LFW dengan minimal 20 wajah per orang (agar variatif)
-            lfw = fetch_lfw_people(min_faces_per_person=20, resize=0.4, color=False)
-            X = lfw.images  # shape (n_samples, h, w)
-            # Batasi maksimal 500 sampel agar tidak terlalu berat
-            if len(X) > 500:
-                idx = np.random.choice(len(X), 500, replace=False)
+            # Dataset LFW dengan minimal 30 wajah per orang (lebih variatif)
+            lfw = fetch_lfw_people(min_faces_per_person=30, resize=0.4, color=False)
+            X = lfw.images
+            if len(X) > 800:
+                idx = np.random.choice(len(X), 800, replace=False)
                 X = X[idx]
             X_resized = []
             for img in X:
                 img_resized = cv2.resize(img, (100, 100)).flatten() / 255.0
                 X_resized.append(img_resized)
             X_train = np.array(X_resized)
-            if len(X_train) < 10:
+            if len(X_train) < 20:
                 return None, None
-            # Gunakan 50 komponen PCA (cukup untuk generalisasi)
-            n_comp = min(50, len(X_train)-1)
+            # Hanya 30 komponen PCA – lebih general, mengurangi overfitting
+            n_comp = min(30, len(X_train)-1)
             pca = PCA(n_components=n_comp)
             pca.fit(X_train)
             return pca, X_train
@@ -1087,20 +1086,53 @@ elif page == "🔍 Deteksi":
 
     # ========== FUNGSI DETEKSI DAN PREPROCESS ==========
     def detect_and_preprocess_face(image_pil):
-        """Deteksi wajah, crop, resize, equalize, return vector dan gambar hasil crop."""
+        """
+        Deteksi wajah, alignment berdasarkan mata, crop, CLAHE, resize 100x100,
+        return vektor (flatten) dan gambar hasil crop untuk ditampilkan.
+        """
         img = np.array(image_pil.convert('RGB'))
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-        face_cascade = cv2.CascadeClassifier(cascade_path)
-        # Parameter lebih ketat untuk mengurangi false positive
+        
+        # Deteksi wajah (parameter ketat)
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=6, minSize=(60, 60))
         if len(faces) == 0:
             return None, None
         # Ambil bounding box terbesar
         (x, y, w, h) = max(faces, key=lambda rect: rect[2]*rect[3])
-        face_img = gray[y:y+h, x:x+w]
-        face_resized = cv2.resize(face_img, (100, 100))
-        face_eq = cv2.equalizeHist(face_resized)
+        
+        # Tambahkan padding 10%
+        pad = int(0.1 * w)
+        x1 = max(0, x - pad)
+        y1 = max(0, y - pad)
+        x2 = min(img.shape[1], x + w + pad)
+        y2 = min(img.shape[0], y + h + pad)
+        face_roi = gray[y1:y2, x1:x2]
+        
+        # Deteksi mata untuk alignment (rotasi)
+        eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+        eyes = eye_cascade.detectMultiScale(face_roi, scaleFactor=1.05, minNeighbors=5, minSize=(20, 20))
+        if len(eyes) >= 2:
+            # Ambil dua mata terbesar
+            eyes = sorted(eyes, key=lambda e: e[2]*e[3], reverse=True)[:2]
+            (ex1, ey1, ew1, eh1) = eyes[0]
+            (ex2, ey2, ew2, eh2) = eyes[1]
+            cx1, cy1 = ex1 + ew1//2, ey1 + eh1//2
+            cx2, cy2 = ex2 + ew2//2, ey2 + eh2//2
+            if cx2 != cx1:
+                angle = np.degrees(np.arctan2(cy2 - cy1, cx2 - cx1))
+                center = (face_roi.shape[1]//2, face_roi.shape[0]//2)
+                rot_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
+                face_roi = cv2.warpAffine(face_roi, rot_mat, (face_roi.shape[1], face_roi.shape[0]), flags=cv2.INTER_CUBIC)
+        
+        # Resize ke 100x100
+        face_resized = cv2.resize(face_roi, (100, 100))
+        # CLAHE untuk normalisasi kontras
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        face_eq = clahe.apply(face_resized)
+        # Histogram equalization tambahan (global) – opsional
+        face_eq = cv2.equalizeHist(face_eq)
+        # Normalisasi ke [0,1]
         face_vector = face_eq.flatten() / 255.0
         return face_vector, face_eq
 
@@ -1128,9 +1160,9 @@ elif page == "🔍 Deteksi":
 
     col_param1, col_param2 = st.columns(2)
     with col_param1:
-        n_components = st.slider("Jumlah komponen PCA (k)", 2, 80, 50, 1, key="n_comp_deteksi")
+        n_components = st.slider("Jumlah komponen PCA (k)", 2, 60, 30, 1, key="n_comp_deteksi")
     with col_param2:
-        threshold = st.slider("Threshold kemiripan (%)", 0, 100, 70, 5, key="thresh_deteksi") / 100.0
+        threshold = st.slider("Threshold kemiripan (%)", 0, 100, 65, 5, key="thresh_deteksi") / 100.0
 
     if img1 is not None and img2 is not None:
         col_show1, col_show2 = st.columns(2)
@@ -1191,11 +1223,22 @@ elif page == "🔍 Deteksi":
                 # ===== Proyeksi dan normalisasi L2 =====
                 vec1_pca = pca_model.transform([vec1])[0]
                 vec2_pca = pca_model.transform([vec2])[0]
-                # Normalisasi L2 agar cosine similarity hanya bergantung arah vektor
+                # Normalisasi L2
                 vec1_pca = vec1_pca / (np.linalg.norm(vec1_pca) + 1e-10)
                 vec2_pca = vec2_pca / (np.linalg.norm(vec2_pca) + 1e-10)
-                sim = np.dot(vec1_pca, vec2_pca)   # cosine similarity
-                sim = max(0, sim)                  # clamp ke positif
+
+                # Cosine similarity
+                cos_sim = np.dot(vec1_pca, vec2_pca)
+                cos_sim = max(0, cos_sim)
+
+                # Euclidean distance (maksimum jarak antar vektor ternormalisasi adalah 2)
+                euclidean_dist = np.linalg.norm(vec1_pca - vec2_pca)
+                euclidean_norm = euclidean_dist / 2.0  # normalisasi ke [0,1]
+                euclidean_sim = 1.0 - euclidean_norm   # ubah jarak menjadi kemiripan
+
+                # Gabungkan kedua metrik (bobot 50:50)
+                sim = 0.5 * cos_sim + 0.5 * euclidean_sim
+                sim = max(0, min(1, sim))  # clamp
 
                 var_ratio = np.sum(pca_model.explained_variance_ratio_) * 100
                 ambang = threshold
@@ -1248,7 +1291,9 @@ elif page == "🔍 Deteksi":
                     st.subheader("Penjelasan Hasil")
                     st.markdown(f"""
                     <div class="explanation-box">
-                    <b>Skor kemiripan:</b> {sim:.2%} (Cosine Similarity setelah normalisasi L2).<br>
+                    <b>Skor kemiripan gabungan:</b> {sim:.2%} (50% Cosine + 50% Euclidean similarity).<br>
+                    <b>Cosine Similarity:</b> {cos_sim:.2%} – mengukur arah vektor fitur.<br>
+                    <b>Euclidean Similarity:</b> {euclidean_sim:.2%} – mengukur jarak absolut.<br>
                     <b>Ambang batas:</b> {ambang:.0%} – jika skor ≥ ambang, dianggap <b>MIRIP</b>.<br>
                     <b>Komponen PCA:</b> {pca_model.n_components_} dari {len(train_vectors)} sampel latih.<br>
                     <b>Total varians dipertahankan:</b> {var_ratio:.1f}%.<br><br>
