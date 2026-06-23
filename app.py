@@ -994,7 +994,7 @@ elif page == "🔍 Deteksi":
             menggunakan <b>PCA Eigenfaces</b> dengan 100 komponen, standardisasi, dan Cosine Similarity.
         </p>
         <p style="color:#880E4F; font-style:italic;">
-            "Skor ≥ 85% → sangat mirip (kemungkinan sama). 70–85% → agak mirip. < 70% → tidak mirip."
+            "Skor ≥ 85% → MIRIP, < 85% → TIDAK MIRIP (keputusan tegas)."
         </p>
         <p>📌 <b>Keterangan:</b> Untuk hasil terbaik, install <code>face_recognition</code> dan <code>dlib</code>.
         PCA kurang akurat untuk wajah Asia – sarankan upload data latih sendiri.</p>
@@ -1209,7 +1209,7 @@ elif page == "🔍 Deteksi":
                     var_ratio = np.sum(pca_model.explained_variance_ratio_) * 100
                     pca_comp = pca_model.n_components_
 
-                # ======== Interpretasi skor ========
+                # ======== Interpretasi skor (HANYA DUA KATEGORI: MIRIP atau TIDAK) ========
                 ambang = threshold
                 st.subheader("Hasil Deteksi Kemiripan Wajah")
                 kolom_r1, kolom_r2, kolom_r3 = st.columns([2, 2, 1.5])
@@ -1227,14 +1227,12 @@ elif page == "🔍 Deteksi":
                     st.markdown('<div class="result-container">', unsafe_allow_html=True)
                     st.markdown('<div class="pink-badge">🎯 Skor Kemiripan</div>', unsafe_allow_html=True)
                     st.markdown(f"<h1 style='color:#AD1457;font-size:42px;'>{sim:.2%}</h1>", unsafe_allow_html=True)
-                    # INTERPRETASI YANG LEBIH TEGAS
-                    if sim >= 0.85:
-                        st.success("**✅ SANGAT MIRIP!** (Kemungkinan besar orang yang sama)")
+                    # HANYA DUA OPSI: MIRIP ATAU TIDAK
+                    if sim >= ambang:
+                        st.success("**✅ MIRIP!**")
                         st.balloons()
-                    elif sim >= 0.70:
-                        st.warning("**⚠️ AGAK MIRIP** (Ada kemiripan, tapi belum tentu sama)")
                     else:
-                        st.error("**❌ TIDAK MIRIP** (Orang berbeda)")
+                        st.error("**❌ TIDAK MIRIP**")
                     st.caption(f"Metode: {metode}")
                     if FACE_RECOGNITION_AVAILABLE:
                         st.caption(f"Jarak Euclidean: {distance:.3f}")
@@ -1272,13 +1270,11 @@ elif page == "🔍 Deteksi":
                         st.markdown(f"""
                         <div class="explanation-box">
                         <b>Skor kemiripan (Cosine Similarity):</b> {sim:.2%}<br>
-                        <b>Ambang batas:</b> {ambang:.0%} – jika skor ≥ ambang, dianggap <b>MIRIP</b>.<br>
+                        <b>Ambang batas:</b> {ambang:.0%} – skor ≥ {ambang:.0%} → <b>MIRIP</b>, skor < {ambang:.0%} → <b>TIDAK MIRIP</b>.<br>
                         <b>Komponen PCA:</b> {pca_comp}<br>
                         <b>Total varians dipertahankan:</b> {var_ratio:.1f}%.<br><br>
-                        <b>💡 Interpretasi skor (tegas):</b><br>
-                        • ≥ 85% → <b>SANGAT MIRIP</b> (kemungkinan besar orang yang sama).<br>
-                        • 70–85% → <b>AGAK MIRIP</b> (ada kemiripan, tapi TIDAK DIANGGAP MIRIP).<br>
-                        • < 70% → <b>TIDAK MIRIP</b> (orang berbeda).<br><br>
+                        <b>💡 Keputusan tegas:</b><br>
+                        Hanya ada dua hasil: <b>MIRIP</b> atau <b>TIDAK MIRIP</b>.<br><br>
                         <b>⚠️ Catatan:</b> Hasil ini hanya perkiraan, bukan identifikasi forensik.
                         </div>
                         """, unsafe_allow_html=True)
@@ -1288,12 +1284,10 @@ elif page == "🔍 Deteksi":
                     st.markdown(f"""
                     <div class="explanation-box">
                     <b>Skor kemiripan:</b> {sim:.2%} (dikonversi dari jarak Euclidean {distance:.3f})<br>
-                    <b>Ambang batas:</b> {ambang:.0%} – jika skor ≥ ambang, dianggap <b>MIRIP</b>.<br>
+                    <b>Ambang batas:</b> {ambang:.0%} – skor ≥ {ambang:.0%} → <b>MIRIP</b>, skor < {ambang:.0%} → <b>TIDAK MIRIP</b>.<br>
                     <b>Metode:</b> face_recognition (dlib) dengan encoding 128-d.<br><br>
-                    <b>💡 Interpretasi skor (tegas):</b><br>
-                    • ≥ 85% → <b>SANGAT MIRIP</b> (kemungkinan besar orang yang sama).<br>
-                    • 70–85% → <b>AGAK MIRIP</b> (ada kemiripan, tapi TIDAK DIANGGAP MIRIP).<br>
-                    • < 70% → <b>TIDAK MIRIP</b> (orang berbeda).<br><br>
+                    <b>💡 Keputusan tegas:</b><br>
+                    Hanya ada dua hasil: <b>MIRIP</b> atau <b>TIDAK MIRIP</b>.<br><br>
                     <b>✅ Keunggulan:</b> Metode ini sangat akurat dan tidak bias ras.
                     </div>
                     """, unsafe_allow_html=True)
