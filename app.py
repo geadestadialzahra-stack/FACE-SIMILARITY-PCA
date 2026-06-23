@@ -476,6 +476,17 @@ st.markdown("""
         .explanation-box b {
             color: #AD1457 !important;
         }
+        .warning-box {
+            background: #FFF3CD !important;
+            border-left: 5px solid #FFC107 !important;
+            padding: 12px 18px !important;
+            border-radius: 8px !important;
+            margin: 12px 0 !important;
+            color: #856404 !important;
+        }
+        .warning-box b {
+            color: #856404 !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -983,10 +994,10 @@ elif page == "🔍 Deteksi":
             menggunakan <b>PCA Eigenfaces</b> dengan 100 komponen, standardisasi, dan Cosine Similarity.
         </p>
         <p style="color:#880E4F; font-style:italic;">
-            "Skor > 70% → mirip (kemungkinan sama). 50–70% → agak mirip. < 50% → tidak mirip."
+            "Skor ≥ 85% → sangat mirip (kemungkinan sama). 70–85% → cukup mirip. < 70% → tidak mirip."
         </p>
         <p>📌 <b>Keterangan:</b> Untuk hasil terbaik, install <code>face_recognition</code> dan <code>dlib</code>.
-        Data latih PCA dapat di-custom dengan upload ZIP berisi foto wajah.</p>
+        PCA kurang akurat untuk wajah Asia – sarankan upload data latih sendiri.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -994,6 +1005,7 @@ elif page == "🔍 Deteksi":
     try:
         import face_recognition
         FACE_RECOGNITION_AVAILABLE = True
+        st.success("✅ face_recognition terdeteksi! Menggunakan metode deep learning yang akurat.")
     except ImportError:
         FACE_RECOGNITION_AVAILABLE = False
         st.warning("⚠️ face_recognition tidak terinstall. Menggunakan PCA Eigenfaces (kurang akurat). Install dengan: pip install face_recognition")
@@ -1011,8 +1023,8 @@ elif page == "🔍 Deteksi":
         try:
             lfw = fetch_lfw_people(min_faces_per_person=100, resize=0.4, color=False)
             X = lfw.images
-            if len(X) > 1500:
-                idx = np.random.choice(len(X), 1500, replace=False)
+            if len(X) > 2000:
+                idx = np.random.choice(len(X), 2000, replace=False)
                 X = X[idx]
             X_resized = []
             for img in X:
@@ -1032,7 +1044,7 @@ elif page == "🔍 Deteksi":
             return None, None, None, None
 
     if not st.session_state.deteksi_model_loaded and not FACE_RECOGNITION_AVAILABLE:
-        with st.spinner("⏳ Memuat dataset LFW untuk PCA..."):
+        with st.spinner("⏳ Memuat dataset LFW untuk PCA (2000 sampel)..."):
             pca, X_train, mean, std = load_default_training()
             if pca is not None:
                 st.session_state.deteksi_pca_model = pca
@@ -1044,7 +1056,7 @@ elif page == "🔍 Deteksi":
             else:
                 st.warning("⚠️ Gagal memuat LFW. Upload data latih sendiri (ZIP berisi banyak wajah).")
 
-    # ========== FUNGSI PREPROCESS WAJAH ==========
+    # ========== FUNGSI PREPROCESS WAJAH (tanpa rotasi) ==========
     def detect_and_preprocess_face(image_pil, target_size=128):
         img = np.array(image_pil.convert('RGB'))
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
@@ -1059,22 +1071,6 @@ elif page == "🔍 Deteksi":
         x2 = min(img.shape[1], x + w + pad)
         y2 = min(img.shape[0], y + h + pad)
         face_roi = gray[y1:y2, x1:x2]
-        
-        # Alignment mata
-        eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
-        eyes = eye_cascade.detectMultiScale(face_roi, scaleFactor=1.05, minNeighbors=5, minSize=(20, 20))
-        if len(eyes) >= 2:
-            eyes = sorted(eyes, key=lambda e: e[2]*e[3], reverse=True)[:2]
-            (ex1, ey1, ew1, eh1) = eyes[0]
-            (ex2, ey2, ew2, eh2) = eyes[1]
-            cx1, cy1 = ex1 + ew1//2, ey1 + eh1//2
-            cx2, cy2 = ex2 + ew2//2, ey2 + eh2//2
-            if cx2 != cx1:
-                angle = np.degrees(np.arctan2(cy2 - cy1, cx2 - cx1))
-                center = (face_roi.shape[1]//2, face_roi.shape[0]//2)
-                rot_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
-                face_roi = cv2.warpAffine(face_roi, rot_mat, (face_roi.shape[1], face_roi.shape[0]), flags=cv2.INTER_CUBIC)
-        
         face_resized = cv2.resize(face_roi, (target_size, target_size))
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
         face_eq = clahe.apply(face_resized)
@@ -1104,11 +1100,16 @@ elif page == "🔍 Deteksi":
     with col_upload2:
         img2 = st.file_uploader("📤 Foto Kedua (wajah)", type=["jpg", "jpeg", "png"], key="img2_deteksi")
 
-    col_param1, col_param2 = st.columns(2)
-    with col_param1:
-        n_components = st.slider("Jumlah komponen PCA (k) (hanya untuk PCA)", 2, 150, 100, 1, key="n_comp_deteksi")
-    with col_param2:
+    # Hanya tampilkan slider PCA jika face_recognition tidak tersedia
+    if not FACE_RECOGNITION_AVAILABLE:
+        col_param1, col_param2 = st.columns(2)
+        with col_param1:
+            n_components = st.slider("Jumlah komponen PCA (k)", 2, 150, 100, 1, key="n_comp_deteksi")
+        with col_param2:
+            threshold = st.slider("Threshold kemiripan (%)", 0, 100, 70, 5, key="thresh_deteksi") / 100.0
+    else:
         threshold = st.slider("Threshold kemiripan (%)", 0, 100, 70, 5, key="thresh_deteksi") / 100.0
+        n_components = 100  # placeholder
 
     if img1 is not None and img2 is not None:
         col_show1, col_show2 = st.columns(2)
@@ -1122,7 +1123,7 @@ elif page == "🔍 Deteksi":
                 pil1 = Image.open(img1).convert('RGB')
                 pil2 = Image.open(img2).convert('RGB')
 
-                # Deteksi wajah
+                # Deteksi wajah (hanya untuk crop dan tampilan)
                 vec1, face1 = detect_and_preprocess_face(pil1, target_size=128)
                 vec2, face2 = detect_and_preprocess_face(pil2, target_size=128)
 
@@ -1135,25 +1136,21 @@ elif page == "🔍 Deteksi":
 
                 # ======== METODE 1: face_recognition (jika tersedia) ========
                 if FACE_RECOGNITION_AVAILABLE:
-                    # Konversi PIL ke array RGB untuk face_recognition
                     img1_rgb = np.array(pil1)
                     img2_rgb = np.array(pil2)
-                    # Deteksi lokasi wajah
                     face_locs1 = face_recognition.face_locations(img1_rgb, model="hog")
                     face_locs2 = face_recognition.face_locations(img2_rgb, model="hog")
                     if len(face_locs1) == 0 or len(face_locs2) == 0:
                         st.error("Wajah tidak terdeteksi oleh face_recognition. Coba upload gambar yang lebih jelas.")
                         st.stop()
-                    # Ambil encoding wajah pertama
                     enc1 = face_recognition.face_encodings(img1_rgb, face_locs1)[0]
                     enc2 = face_recognition.face_encodings(img2_rgb, face_locs2)[0]
-                    # Jarak Euclidean (semakin kecil semakin mirip, threshold 0.6 biasanya)
                     distance = np.linalg.norm(enc1 - enc2)
-                    # Konversi jarak ke skor kemiripan (0-1)
-                    sim = max(0, 1 - distance / 1.5)  # 1.5 adalah skala, jarak 0 -> 1, jarak 1.5 -> 0
+                    # Konversi jarak ke skor (0-1), threshold 0.6 = 60%
+                    sim = max(0, 1 - distance / 1.5)
                     sim = min(1, sim)
                     metode = "face_recognition (deep learning)"
-                    var_ratio = 100.0  # tidak ada varians
+                    var_ratio = 100.0
                     pca_comp = "N/A"
                 else:
                     # ======== METODE 2: PCA Eigenfaces ========
@@ -1233,7 +1230,7 @@ elif page == "🔍 Deteksi":
                     if sim >= 0.85:
                         st.success("**✅ SANGAT MIRIP!** (Kemungkinan besar orang yang sama)")
                         st.balloons()
-                    elif sim >= 0.60:
+                    elif sim >= 0.70:
                         st.warning("**⚠️ CUKUP MIRIP** (Ada kemiripan, tapi belum tentu sama)")
                     else:
                         st.error("**❌ TIDAK MIRIP** (Orang berbeda)")
@@ -1246,6 +1243,14 @@ elif page == "🔍 Deteksi":
 
                 st.markdown("---")
                 if not FACE_RECOGNITION_AVAILABLE:
+                    # Tampilkan peringatan tentang akurasi PCA
+                    st.markdown("""
+                    <div class="warning-box">
+                        <b>⚠️ Peringatan:</b> PCA Eigenfaces kurang akurat untuk wajah Asia karena data latih didominasi oleh wajah Kaukasia.
+                        <br>Disarankan untuk menginstall <code>face_recognition</code> atau upload data latih sendiri yang berisi wajah Indonesia.
+                    </div>
+                    """, unsafe_allow_html=True)
+
                     kolom_graf, kolom_exp = st.columns([1, 1])
                     with kolom_graf:
                         st.subheader("Grafik Akumulasi Informasi PCA (Data Latih)")
@@ -1271,8 +1276,8 @@ elif page == "🔍 Deteksi":
                         <b>Total varians dipertahankan:</b> {var_ratio:.1f}%.<br><br>
                         <b>💡 Interpretasi skor:</b><br>
                         • ≥ 85% → <b>SANGAT MIRIP</b> (kemungkinan besar orang yang sama).<br>
-                        • 60–85% → <b>CUKUP MIRIP</b> (ada kemiripan).<br>
-                        • < 60% → <b>TIDAK MIRIP</b> (orang berbeda).<br><br>
+                        • 70–85% → <b>CUKUP MIRIP</b> (ada kemiripan).<br>
+                        • < 70% → <b>TIDAK MIRIP</b> (orang berbeda).<br><br>
                         <b>⚠️ Catatan:</b> Hasil ini hanya perkiraan, bukan identifikasi forensik.
                         </div>
                         """, unsafe_allow_html=True)
@@ -1286,9 +1291,9 @@ elif page == "🔍 Deteksi":
                     <b>Metode:</b> face_recognition (dlib) dengan encoding 128-d.<br><br>
                     <b>💡 Interpretasi skor:</b><br>
                     • ≥ 85% → <b>SANGAT MIRIP</b> (kemungkinan besar orang yang sama).<br>
-                    • 60–85% → <b>CUKUP MIRIP</b> (ada kemiripan).<br>
-                    • < 60% → <b>TIDAK MIRIP</b> (orang berbeda).<br><br>
-                    <b>⚠️ Catatan:</b> Hasil ini sangat akurat untuk wajah yang terdeteksi dengan baik.
+                    • 70–85% → <b>CUKUP MIRIP</b> (ada kemiripan).<br>
+                    • < 70% → <b>TIDAK MIRIP</b> (orang berbeda).<br><br>
+                    <b>✅ Keunggulan:</b> Metode ini sangat akurat dan tidak bias ras.
                     </div>
                     """, unsafe_allow_html=True)
 
