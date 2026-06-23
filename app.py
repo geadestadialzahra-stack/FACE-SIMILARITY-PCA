@@ -1023,7 +1023,7 @@ elif page == "🔍 Deteksi":
     <div class="deteksi-header">
         <div class="love-shower">❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖</div>
         <h1>🔍 Deteksi Kemiripan Wajah</h1>
-        <p>Bandingkan dua wajah dengan PCA + Cosine Similarity & Euclidean Distance</p>
+        <p>Bandingkan dua wajah dengan PCA + Cosine Similarity & Euclidean Distance (lebih akurat)</p>
         <div class="love-shower">❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖</div>
     </div>
     """, unsafe_allow_html=True)
@@ -1033,12 +1033,13 @@ elif page == "🔍 Deteksi":
                 padding: 1.5rem; border-radius: 16px; border: 1px solid #F8BBD0; 
                 margin-bottom: 2rem; text-align: center;">
         <p style="font-size:1.2rem; color:#6A1B4D;">
-            ❤️ <b>Metode:</b> Wajah dideteksi, dicrop, lalu dilakukan <b>CLAHE</b> untuk mengurangi efek cahaya. 
-            PCA mengekstrak fitur, lalu kemiripan dihitung dari <b>Cosine Similarity</b> dan <b>Euclidean Distance</b> 
-            secara bersamaan – hanya jika keduanya menunjukkan kemiripan, skor akhir tinggi.
+            ❤️ <b>Metode terbaru:</b> Wajah dideteksi, dicrop, lalu dilakukan <b>CLAHE</b> dan resize ke <b>150×150</b> (lebih detail). 
+            PCA dengan <b>whiten=True</b> dan <b>98% varians</b> untuk ekstraksi fitur. 
+            Kemiripan dihitung dari gabungan <b>Cosine Similarity</b> dan <b>Euclidean Distance</b> 
+            dengan bobot yang lebih menekankan jarak, ditambah <b>penalti outlier</b> untuk wajah yang tidak familiar.
         </p>
         <p style="color:#880E4F; font-style:italic;">
-            "Dua metrik lebih akurat daripada satu."
+            "Dua metrik + penalti outlier = hasil lebih akurat."
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -1050,15 +1051,17 @@ elif page == "🔍 Deteksi":
         st.session_state.deteksi_scaler = None
         st.session_state.deteksi_X_train = None
         st.session_state.deteksi_mean_dist = None
+        st.session_state.deteksi_center = None
+        st.session_state.deteksi_std_dist = None
 
-    # --- Load data latih default (LFW) dengan lebih banyak sampel ---
+    # --- Load data latih default (LFW) dengan lebih banyak sampel dan ukuran lebih besar ---
     if not st.session_state.deteksi_model_loaded:
-        with st.spinner("⏳ Memuat dataset LFW untuk data latih default... (mohon tunggu)"):
+        with st.spinner("⏳ Memuat dataset LFW untuk data latih default (50 orang, 150x150)..."):
             try:
-                lfw = fetch_lfw_people(min_faces_per_person=5, resize=0.4, color=False)
+                lfw = fetch_lfw_people(min_faces_per_person=5, resize=0.5, color=False)  # resize=0.5 gives ~125x125, kita resize lagi ke 150
                 unique_labels = np.unique(lfw.target)
                 
-                max_people = 15
+                max_people = 50  # lebih banyak
                 selected_people = []
                 for label in unique_labels:
                     if np.sum(lfw.target == label) >= 5:
@@ -1074,7 +1077,7 @@ elif page == "🔍 Deteksi":
                     for label in selected_people:
                         idx = np.where(lfw.target == label)[0][:5]
                         for i in idx:
-                            img = cv2.resize(lfw.images[i], (100, 100))
+                            img = cv2.resize(lfw.images[i], (150, 150))  # ukuran lebih besar
                             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
                             img_eq = clahe.apply((img * 255).astype(np.uint8))
                             X_train.append(img_eq.flatten().astype(np.float64))
@@ -1083,27 +1086,35 @@ elif page == "🔍 Deteksi":
                     scaler = StandardScaler()
                     X_train_scaled = scaler.fit_transform(X_train)
                     
+                    # PCA dengan whiten=True dan varians 98%
                     pca_temp = PCA()
                     pca_temp.fit(X_train_scaled)
                     cumsum = np.cumsum(pca_temp.explained_variance_ratio_)
-                    target_var = 0.90
+                    target_var = 0.98
                     k_opt = np.searchsorted(cumsum, target_var) + 1
-                    k_opt = min(k_opt, len(X_train_scaled)-1, 80)
+                    k_opt = min(k_opt, len(X_train_scaled)-1, 200)
                     
-                    pca = PCA(n_components=k_opt)
+                    pca = PCA(n_components=k_opt, whiten=True)
                     pca.fit(X_train_scaled)
                     
+                    # Hitung statistik jarak antar data latih
                     train_pca = pca.transform(X_train_scaled)
                     dists = []
                     for i in range(len(train_pca)):
                         for j in range(i+1, len(train_pca)):
                             dists.append(np.linalg.norm(train_pca[i] - train_pca[j]))
                     mean_dist = np.mean(dists) if dists else 1.0
+                    std_dist = np.std(dists) if dists else 0.5
+                    
+                    # Pusat data latih (rata-rata vektor PCA)
+                    center = np.mean(train_pca, axis=0)
                     
                     st.session_state.deteksi_pca_model = pca
                     st.session_state.deteksi_scaler = scaler
                     st.session_state.deteksi_X_train = X_train_scaled
                     st.session_state.deteksi_mean_dist = mean_dist
+                    st.session_state.deteksi_std_dist = std_dist
+                    st.session_state.deteksi_center = center
                     st.session_state.deteksi_model_loaded = True
                     st.success(f"✅ Data latih LFW dimuat: {len(X_train_scaled)} gambar dari {len(selected_people)} orang. "
                                f"Komponen PCA: {k_opt} (mempertahankan {target_var*100:.0f}% varians)")
@@ -1116,7 +1127,7 @@ elif page == "🔍 Deteksi":
     st.markdown("#### 📂 Data Latih")
     data_mode = st.radio(
         "Pilih sumber data latih:",
-        ["Gunakan data latih default (LFW)", "Upload file ZIP berisi gambar wajah"],
+        ["Gunakan data latih default (LFW - 50 orang)", "Upload file ZIP berisi gambar wajah"],
         horizontal=True,
         key="data_mode_deteksi"
     )
@@ -1139,24 +1150,26 @@ elif page == "🔍 Deteksi":
     with col_param1:
         var_percent = st.slider(
             "Persentase varians yang dipertahankan (%)",
-            min_value=80, max_value=98, value=90, step=1,
+            min_value=85, max_value=99, value=98, step=1,
             key="var_percent_deteksi"
         ) / 100.0
     with col_param2:
-        threshold = st.slider("Threshold kemiripan (%)", 0, 100, 70, 5, key="thresh_deteksi") / 100.0
+        threshold = st.slider("Threshold kemiripan (%)", 0, 100, 65, 5, key="thresh_deteksi") / 100.0
 
-    # --- Fungsi deteksi wajah dengan CLAHE ---
+    # --- Fungsi deteksi wajah dengan CLAHE dan resize 150x150 ---
     def detect_and_preprocess(image_np):
         gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY) if len(image_np.shape)==3 else image_np
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40))
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(50, 50))
         if len(faces) == 0:
             return None, False
         (x, y, w, h) = max(faces, key=lambda rect: rect[2]*rect[3])
         face = gray[y:y+h, x:x+w]
+        # CLAHE
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
         face_eq = clahe.apply(face)
-        face_resized = cv2.resize(face_eq, (100, 100))
+        # Resize ke 150x150
+        face_resized = cv2.resize(face_eq, (150, 150))
         return face_resized, True
 
     # --- Tombol proses ---
@@ -1186,17 +1199,20 @@ elif page == "🔍 Deteksi":
 
                 col_face1, col_face2 = st.columns(2)
                 with col_face1:
-                    st.image(face1, caption="Wajah (CLAHE)", use_container_width=True, clamp=True)
+                    st.image(face1, caption="Wajah (CLAHE, 150x150)", use_container_width=True, clamp=True)
                 with col_face2:
-                    st.image(face2, caption="Wajah (CLAHE)", use_container_width=True, clamp=True)
+                    st.image(face2, caption="Wajah (CLAHE, 150x150)", use_container_width=True, clamp=True)
 
                 arr1 = face1.flatten().astype(np.float64)
                 arr2 = face2.flatten().astype(np.float64)
 
-                if data_mode == "Gunakan data latih default (LFW)" and st.session_state.deteksi_model_loaded:
+                # --- Siapkan data latih ---
+                if data_mode == "Gunakan data latih default (LFW - 50 orang)" and st.session_state.deteksi_model_loaded:
                     scaler = st.session_state.deteksi_scaler
                     pca = st.session_state.deteksi_pca_model
                     mean_dist = st.session_state.deteksi_mean_dist
+                    std_dist = st.session_state.deteksi_std_dist
+                    center = st.session_state.deteksi_center
                     arr1_scaled = scaler.transform([arr1])[0]
                     arr2_scaled = scaler.transform([arr2])[0]
                 elif data_mode == "Upload file ZIP berisi gambar wajah" and uploaded_zip is not None:
@@ -1209,7 +1225,7 @@ elif page == "🔍 Deteksi":
                                 if file.lower().endswith(('.png', '.jpg', '.jpeg')):
                                     try:
                                         img_path = os.path.join(root, file)
-                                        img = Image.open(img_path).convert("L").resize((100, 100))
+                                        img = Image.open(img_path).convert("L").resize((150, 150))
                                         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
                                         img_np = np.array(img)
                                         img_eq = clahe.apply(img_np)
@@ -1227,8 +1243,8 @@ elif page == "🔍 Deteksi":
                         pca_temp.fit(train_scaled)
                         cumsum = np.cumsum(pca_temp.explained_variance_ratio_)
                         k_opt = np.searchsorted(cumsum, var_percent) + 1
-                        k_opt = min(k_opt, len(train_scaled)-1, 80)
-                        pca = PCA(n_components=k_opt)
+                        k_opt = min(k_opt, len(train_scaled)-1, 200)
+                        pca = PCA(n_components=k_opt, whiten=True)
                         pca.fit(train_scaled)
                         arr1_scaled = scaler.transform([arr1])[0]
                         arr2_scaled = scaler.transform([arr2])[0]
@@ -1238,10 +1254,13 @@ elif page == "🔍 Deteksi":
                             for j in range(i+1, len(train_pca)):
                                 dists.append(np.linalg.norm(train_pca[i] - train_pca[j]))
                         mean_dist = np.mean(dists) if dists else 1.0
+                        std_dist = np.std(dists) if dists else 0.5
+                        center = np.mean(train_pca, axis=0)
                 else:
                     st.error("Tidak ada data latih yang valid. Pilih sumber data latih atau upload ZIP.")
                     st.stop()
 
+                # Proyeksi
                 vec1_pca = pca.transform([arr1_scaled])[0]
                 vec2_pca = pca.transform([arr2_scaled])[0]
 
@@ -1256,17 +1275,34 @@ elif page == "🔍 Deteksi":
 
                 # Euclidean distance
                 euclidean_dist = np.linalg.norm(vec1_pca - vec2_pca)
+                # Normalisasi jarak: semakin kecil jarak, semakin mirip
                 if mean_dist > 0:
-                    dist_sim = max(0, 1 - (euclidean_dist / (mean_dist * 2)))
+                    raw_dist_sim = max(0, 1 - (euclidean_dist / (mean_dist + 2*std_dist)))
                 else:
-                    dist_sim = 0.5
+                    raw_dist_sim = 0.5
 
-                final_score = 0.7 * cos_sim + 0.3 * dist_sim
+                # --- Penalti outlier ---
+                # Hitung jarak masing-masing vektor ke pusat data latih
+                dist_center1 = np.linalg.norm(vec1_pca - center)
+                dist_center2 = np.linalg.norm(vec2_pca - center)
+                # Jika jarak > 2*std_dist, dianggap outlier
+                outlier_penalty = 1.0
+                if std_dist > 0:
+                    if dist_center1 > 2*std_dist:
+                        outlier_penalty *= 0.7
+                    if dist_center2 > 2*std_dist:
+                        outlier_penalty *= 0.7
+                # Terapkan penalti ke raw_dist_sim
+                dist_sim = raw_dist_sim * outlier_penalty
+
+                # --- Skor akhir (bobot lebih ke jarak) ---
+                final_score = 0.4 * cos_sim + 0.6 * dist_sim
                 kemiripan = max(0, min(1, final_score))
 
                 var_ratio = np.sum(pca.explained_variance_ratio_) * 100
                 ambang = threshold
 
+                # Tampilkan hasil
                 st.subheader("Hasil Deteksi Foto Kamu ^^")
                 kolom_r1, kolom_r2, kolom_r3 = st.columns([2, 2, 1.5])
                 with kolom_r1:
@@ -1283,11 +1319,14 @@ elif page == "🔍 Deteksi":
                     st.markdown('<div class="result-container">', unsafe_allow_html=True)
                     st.markdown('<div class="pink-badge">Skor Kemiripan Foto!!</div>', unsafe_allow_html=True)
                     st.markdown(f"<h1 style='color:#AD1457;font-size:42px;'>{kemiripan:.2%}</h1>", unsafe_allow_html=True)
-                    st.caption(f"Cosine: {cos_sim:.2%} | Distance-score: {dist_sim:.2%}")
+                    # Tampilkan metrik detail
+                    st.caption(f"Cosine: {cos_sim:.2%} | Distance-score: {dist_sim:.2%} (setelah penalti)")
+                    if outlier_penalty < 1.0:
+                        st.warning("⚠️ Salah satu wajah tidak familiar (outlier) – skor dikurangi.")
                     if kemiripan >= ambang:
                         st.success("**WAH MIRIP!! :D**")
                         st.balloons()
-                    elif kemiripan >= 0.45:
+                    elif kemiripan >= 0.40:
                         st.warning("**HMM CUKUP MIRIP LAH YA ;D**")
                     else:
                         st.error("**TIDAK MIRIP ^^**")
@@ -1295,6 +1334,7 @@ elif page == "🔍 Deteksi":
                     st.caption(f"Varians: {var_ratio:.1f}%")
                     st.markdown('</div>', unsafe_allow_html=True)
 
+                # Grafik akumulasi informasi
                 st.markdown("---")
                 kolom_graf, kolom_exp = st.columns([1, 1])
                 with kolom_graf:
@@ -1315,11 +1355,11 @@ elif page == "🔍 Deteksi":
                     st.subheader("Penjelasan")
                     st.markdown("""
                     <div class="explanation-box">
-                    <b>📊 Metrik gabungan:</b><br>
-                    • <b>Cosine Similarity</b> mengukur arah vektor fitur – nilai tinggi artinya pola wajah serupa.<br>
-                    • <b>Distance-score</b> mengukur kedekatan jarak Euclidean – semakin kecil jarak, semakin mirip.<br>
-                    • Skor akhir adalah kombinasi keduanya (70% cosine + 30% distance).<br><br>
-                    Dengan preprocessing CLAHE dan PCA yang lebih general (90% varians), hasil lebih akurat.
+                    <b>📊 Metrik gabungan + penalti outlier:</b><br>
+                    • <b>Cosine Similarity</b> mengukur arah vektor fitur.<br>
+                    • <b>Distance-score</b> mengukur kedekatan Euclidean, lalu dikalikan penalti jika wajah tidak familiar (outlier).<br>
+                    • Skor akhir = 40% cosine + 60% distance (dengan penalti).<br><br>
+                    Dengan preprocessing CLAHE, resize 150×150, dan PCA dengan whiten, hasil lebih akurat dan tidak bias.
                     </div>
                     """, unsafe_allow_html=True)
 
