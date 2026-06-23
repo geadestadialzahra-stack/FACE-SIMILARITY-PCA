@@ -95,7 +95,7 @@ st.markdown("""
             border: none !important;
             box-shadow: 0 4px 15px rgba(233, 30, 99, 0.3) !important;
             transition: 0.3s !important;
-            width: 100% !important;  /* PAKSA FULL WIDTH */
+            width: 100% !important;
         }
         .stButton button:hover {
             transform: scale(1.03) translateY(-2px) !important;
@@ -1020,8 +1020,8 @@ elif page == "🔍 Deteksi":
     st.markdown("""
     <div class="deteksi-header">
         <div class="love-shower">❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖</div>
-        <h1>🔍 Deteksi Kemiripan Gambar (Universal)</h1>
-        <p>Bandingkan dua gambar menggunakan SSIM, PSNR, dan Cosine Similarity – berlaku untuk semua jenis gambar.</p>
+        <h1>🔍 Deteksi Kemiripan Wajah</h1>
+        <p>Bandingkan dua wajah dengan metode PCA (Eigenfaces) dan Cosine Similarity.</p>
         <div class="love-shower">❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖 ❤️ 💖</div>
     </div>
     """, unsafe_allow_html=True)
@@ -1031,128 +1031,249 @@ elif page == "🔍 Deteksi":
                 padding: 1.5rem; border-radius: 16px; border: 1px solid #F8BBD0; 
                 margin-bottom: 2rem; text-align: center;">
         <p style="font-size:1.2rem; color:#6A1B4D;">
-            🔍 <b>Cara kerja:</b> Kedua gambar diubah ke ukuran yang sama (100x100 piksel) dan dinormalisasi. 
-            Kemudian dihitung <b>SSIM</b> (kesamaan struktural), <b>PSNR</b> (rasio sinyal‐noise), 
-            <b>Cosine Similarity</b> (kesamaan arah vektor), dan <b>MSE</b> (error kuadrat rata‐rata). 
-            Hasilnya digabung dengan ambang batas yang dapat diatur untuk menentukan apakah gambar <b>MIRIP</b> atau tidak.
+            ❤️ <b>Cara kerja:</b> Pertama, sistem mendeteksi wajah pada kedua gambar menggunakan <b>Haar Cascade</b>.
+            Jika wajah terdeteksi, gambar akan dipotong (crop), diubah ke skala abu-abu, di-resize ke 100x100, 
+            dan dinormalisasi dengan histogram equalization. Selanjutnya, fitur wajah diekstrak menggunakan <b>PCA</b> 
+            yang dilatih pada dataset wajah (LFW atau data latih custom). Kemiripan dihitung dengan <b>Cosine Similarity</b> 
+            pada ruang PCA. Semakin tinggi skor, semakin mirip kedua wajah.
         </p>
         <p style="color:#880E4F; font-style:italic;">
-            "Setiap gambar punya cerita – kami bantu Anda menemukan kecocokannya."
+            "Setiap wajah unik, tapi kecocokan bisa ditemukan."
         </p>
-        <p>📌 <b>Keterangan:</b> Metode ini tidak bias terhadap jenis objek (manusia, hewan, benda) karena membandingkan struktur piksel dan distribusi warna secara langsung.</p>
+        <p>📌 <b>Keterangan:</b> Pastikan kedua gambar mengandung wajah yang jelas. Jika salah satu tidak terdeteksi wajah, 
+        proses tidak akan dilanjutkan. Data latih default menggunakan LFW dengan banyak orang untuk hasil yang lebih akurat.</p>
     </div>
     """, unsafe_allow_html=True)
 
+    # ======================== INISIALISASI SESSION STATE UNTUK DETEKSI ========================
+    if "deteksi_model_loaded" not in st.session_state:
+        st.session_state.deteksi_model_loaded = False
+        st.session_state.deteksi_pca_model = None
+        st.session_state.deteksi_X_train = None
+
+    # Load default training data (LFW) dengan banyak sampel
+    @st.cache_data
+    def load_default_training():
+        try:
+            lfw = fetch_lfw_people(min_faces_per_person=70, resize=0.4, color=False)
+            # Ambil semua gambar (tidak dibatasi orang)
+            X = lfw.images  # shape (n_samples, h, w)
+            # Resize ke 100x100
+            X_resized = []
+            for img in X:
+                img_resized = cv2.resize(img, (100, 100)).flatten() / 255.0
+                X_resized.append(img_resized)
+            X_train = np.array(X_resized)
+            if len(X_train) < 10:
+                return None, None
+            # PCA dengan komponen yang cukup (misal 100)
+            n_comp = min(100, len(X_train)-1)
+            pca = PCA(n_components=n_comp)
+            pca.fit(X_train)
+            return pca, X_train
+        except Exception as e:
+            return None, None
+
+    if not st.session_state.deteksi_model_loaded:
+        with st.spinner("⏳ Memuat dataset LFW (lebih dari 70 orang)... Tunggu yaa ^^"):
+            pca, X_train = load_default_training()
+            if pca is not None:
+                st.session_state.deteksi_pca_model = pca
+                st.session_state.deteksi_X_train = X_train
+                st.session_state.deteksi_model_loaded = True
+                st.success(f"✅ Data latih default LFW dimuat ({len(X_train)} gambar dari banyak orang, komponen PCA={pca.n_components_})")
+            else:
+                st.warning("⚠️ Gagal memuat LFW. Upload data latih sendiri (ZIP berisi banyak gambar wajah).")
+
+    # Fungsi deteksi wajah dan preprocessing
+    def detect_and_preprocess_face(image_pil):
+        # Convert PIL to OpenCV
+        img = np.array(image_pil.convert('RGB'))
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        # Deteksi wajah menggunakan Haar Cascade
+        cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        face_cascade = cv2.CascadeClassifier(cascade_path)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(50, 50))
+        if len(faces) == 0:
+            return None, None  # tidak ada wajah
+        # Ambil bounding box terbesar
+        (x, y, w, h) = max(faces, key=lambda rect: rect[2]*rect[3])
+        # Crop wajah
+        face_img = gray[y:y+h, x:x+w]
+        # Resize ke 100x100
+        face_resized = cv2.resize(face_img, (100, 100))
+        # Histogram equalization
+        face_eq = cv2.equalizeHist(face_resized)
+        # Flatten dan normalisasi
+        face_vector = face_eq.flatten() / 255.0
+        # Kembalikan juga gambar wajah yang sudah diproses untuk ditampilkan (opsional)
+        return face_vector, face_eq
+
+    # Bagian utama deteksi
+    st.markdown("---")
+    st.markdown("#### 📂 Data Latih (opsional)")
+    data_mode = st.radio(
+        "Pilih sumber data latih:",
+        ["Gunakan data latih default (LFW)", "Upload file ZIP berisi gambar wajah (minimal 20)"],
+        horizontal=True,
+        key="data_mode_deteksi"
+    )
+
+    uploaded_zip = None
+    if data_mode == "Upload file ZIP berisi gambar wajah (minimal 20)":
+        uploaded_zip = st.file_uploader("Unggah file ZIP", type=["zip"], key="train_zip_deteksi")
+        if uploaded_zip is not None:
+            st.success("✅ File ZIP berhasil diunggah. Pastikan berisi banyak gambar wajah (≥20) untuk hasil optimal.")
+
     col_upload1, col_upload2 = st.columns(2)
     with col_upload1:
-        img1 = st.file_uploader("📤 Gambar Pertama", type=["jpg", "jpeg", "png"], key="img1_deteksi")
+        img1 = st.file_uploader("📤 Foto Pertama (wajah)", type=["jpg", "jpeg", "png"], key="img1_deteksi")
     with col_upload2:
-        img2 = st.file_uploader("📤 Gambar Kedua", type=["jpg", "jpeg", "png"], key="img2_deteksi")
+        img2 = st.file_uploader("📤 Foto Kedua (wajah)", type=["jpg", "jpeg", "png"], key="img2_deteksi")
 
     col_param1, col_param2 = st.columns(2)
     with col_param1:
-        threshold_ssim = st.slider("Threshold SSIM (0–1)", 0.0, 1.0, 0.7, 0.05, key="thresh_ssim")
+        n_components = st.slider("Jumlah komponen PCA (k)", 2, 100, 50, 1, key="n_comp_deteksi")
     with col_param2:
-        threshold_cos = st.slider("Threshold Cosine Similarity (-1–1)", -1.0, 1.0, 0.7, 0.05, key="thresh_cos")
+        threshold = st.slider("Threshold kemiripan (%)", 0, 100, 65, 5, key="thresh_deteksi") / 100.0
 
     if img1 is not None and img2 is not None:
         col_show1, col_show2 = st.columns(2)
         with col_show1:
-            st.image(img1, caption="Gambar Pertama", use_container_width=True)
+            st.image(img1, caption="Foto Pertama", use_container_width=True)
         with col_show2:
-            st.image(img2, caption="Gambar Kedua", use_container_width=True)
+            st.image(img2, caption="Foto Kedua", use_container_width=True)
 
         if st.button("🔎 Hitung Kemiripan", use_container_width=True):
             try:
-                size = (100, 100)
-                # Baca dan proses gambar
-                im1 = Image.open(img1).convert("RGB")
-                im2 = Image.open(img2).convert("RGB")
-                # Resize ke ukuran yang sama
-                im1_res = im1.resize(size)
-                im2_res = im2.resize(size)
-                # Konversi ke grayscale untuk SSIM & PSNR
-                im1_gray = im1_res.convert("L")
-                im2_gray = im2_res.convert("L")
-                arr1_gray = np.array(im1_gray, dtype=np.float32) / 255.0
-                arr2_gray = np.array(im2_gray, dtype=np.float32) / 255.0
-                # Flatten untuk cosine similarity dan MSE
-                vec1 = arr1_gray.flatten()
-                vec2 = arr2_gray.flatten()
+                # 1. Deteksi wajah pada kedua gambar
+                pil1 = Image.open(img1).convert('RGB')
+                pil2 = Image.open(img2).convert('RGB')
 
-                # Hitung metrik
-                ssim_val = ssim(arr1_gray, arr2_gray, data_range=1.0)
-                psnr_val = psnr(arr1_gray, arr2_gray, data_range=1.0)
-                cos_sim = cosine_similarity([vec1], [vec2])[0][0]
-                mse_val = np.mean((vec1 - vec2) ** 2)
+                vec1, face1 = detect_and_preprocess_face(pil1)
+                vec2, face2 = detect_and_preprocess_face(pil2)
 
-                # Tentukan kesimpulan
-                if ssim_val >= threshold_ssim and cos_sim >= threshold_cos:
-                    kesimpulan = "✅ MIRIP"
-                    warna = "green"
+                if vec1 is None:
+                    st.error("⚠️ Wajah tidak terdeteksi pada Foto Pertama. Pastikan gambar mengandung wajah yang jelas.")
+                    st.stop()
+                if vec2 is None:
+                    st.error("⚠️ Wajah tidak terdeteksi pada Foto Kedua. Pastikan gambar mengandung wajah yang jelas.")
+                    st.stop()
+
+                # 2. Siapkan data latih (PCA)
+                train_vectors = None
+                pca_model = None
+
+                if data_mode == "Gunakan data latih default (LFW)" and st.session_state.deteksi_model_loaded:
+                    train_vectors = st.session_state.deteksi_X_train
+                    pca_model = st.session_state.deteksi_pca_model
+                elif data_mode == "Upload file ZIP berisi gambar wajah (minimal 20)" and uploaded_zip is not None:
+                    # Baca ZIP dan latih PCA dari gambar di dalamnya
+                    with tempfile.TemporaryDirectory() as tmpdir:
+                        with zipfile.ZipFile(uploaded_zip, 'r') as zip_ref:
+                            zip_ref.extractall(tmpdir)
+                        train_vecs = []
+                        for root, _, files in os.walk(tmpdir):
+                            for file in files:
+                                if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                                    try:
+                                        img_path = os.path.join(root, file)
+                                        pil = Image.open(img_path).convert('RGB')
+                                        vec, _ = detect_and_preprocess_face(pil)
+                                        if vec is not None:
+                                            train_vecs.append(vec)
+                                    except:
+                                        continue
+                        if len(train_vecs) < 20:
+                            st.error(f"Data latih dari ZIP hanya {len(train_vecs)} wajah. Minimal 20 wajah untuk pelatihan PCA yang baik.")
+                            st.stop()
+                        train_vectors = np.array(train_vecs)
+                        n_comp = min(n_components, len(train_vectors)-1, len(train_vectors[0]))
+                        pca_model = PCA(n_components=n_comp)
+                        pca_model.fit(train_vectors)
                 else:
-                    kesimpulan = "❌ TIDAK MIRIP"
-                    warna = "red"
+                    st.error("Tidak ada data latih yang valid. Pilih sumber data latih atau upload ZIP yang berisi banyak wajah.")
+                    st.stop()
 
-                # Tampilkan hasil
-                st.subheader("Hasil Deteksi")
-                col_res1, col_res2, col_res3 = st.columns([2, 2, 1.5])
-                with col_res1:
+                # 3. Proyeksikan kedua vektor ke ruang PCA
+                vec1_pca = pca_model.transform([vec1])[0]
+                vec2_pca = pca_model.transform([vec2])[0]
+
+                # 4. Hitung Cosine Similarity
+                sim = cosine_similarity([vec1_pca], [vec2_pca])[0][0]
+                kemiripan = sim  # nilai antara -1 dan 1, kita pakai 0..1 (cosine bisa negatif, tapi kita clamp ke 0)
+                kemiripan = max(0, kemiripan)
+
+                var_ratio = np.sum(pca_model.explained_variance_ratio_) * 100
+                ambang = threshold
+
+                # 5. Tampilkan hasil
+                st.subheader("Hasil Deteksi Kemiripan Wajah")
+                kolom_r1, kolom_r2, kolom_r3 = st.columns([2, 2, 1.5])
+                with kolom_r1:
                     st.markdown('<div class="result-container">', unsafe_allow_html=True)
-                    st.markdown('<div class="pink-badge">📸 Gambar Pertama</div>', unsafe_allow_html=True)
-                    st.image(img1, caption="Asli", use_container_width=True)
+                    st.markdown('<div class="pink-badge">📸 Foto Pertama (Wajah Terdeteksi)</div>', unsafe_allow_html=True)
+                    st.image(face1, caption="Wajah yang diekstrak", use_container_width=True, clamp=True)
                     st.markdown('</div>', unsafe_allow_html=True)
-                with col_res2:
+                with kolom_r2:
                     st.markdown('<div class="result-container">', unsafe_allow_html=True)
-                    st.markdown('<div class="pink-badge">📸 Gambar Kedua</div>', unsafe_allow_html=True)
-                    st.image(img2, caption="Asli", use_container_width=True)
+                    st.markdown('<div class="pink-badge">📸 Foto Kedua (Wajah Terdeteksi)</div>', unsafe_allow_html=True)
+                    st.image(face2, caption="Wajah yang diekstrak", use_container_width=True, clamp=True)
                     st.markdown('</div>', unsafe_allow_html=True)
-                with col_res3:
+                with kolom_r3:
                     st.markdown('<div class="result-container">', unsafe_allow_html=True)
-                    st.markdown('<div class="pink-badge">📊 Skor Kemiripan</div>', unsafe_allow_html=True)
-                    st.markdown(f"<h2 style='color:{warna};'>{kesimpulan}</h2>", unsafe_allow_html=True)
-                    st.metric("SSIM", f"{ssim_val:.4f}", delta=f"threshold {threshold_ssim:.2f}")
-                    st.metric("PSNR", f"{psnr_val:.2f} dB")
-                    st.metric("Cosine Similarity", f"{cos_sim:.4f}", delta=f"threshold {threshold_cos:.2f}")
-                    st.metric("MSE", f"{mse_val:.6f}")
+                    st.markdown('<div class="pink-badge">🎯 Skor Kemiripan</div>', unsafe_allow_html=True)
+                    st.markdown(f"<h1 style='color:#AD1457;font-size:42px;'>{kemiripan:.2%}</h1>", unsafe_allow_html=True)
+                    if kemiripan >= ambang:
+                        st.success("**✅ MIRIP!** (Kemiripan tinggi)")
+                        st.balloons()
+                    elif kemiripan >= 0.45:
+                        st.warning("**⚠️ CUKUP MIRIP** (Kemiripan sedang)")
+                    else:
+                        st.error("**❌ TIDAK MIRIP** (Kemiripan rendah)")
+                    st.caption(f"Komponen PCA: {pca_model.n_components_}")
+                    st.caption(f"Varians total: {var_ratio:.1f}%")
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                # Grafik perbandingan histogram warna (RGB)
                 st.markdown("---")
-                st.subheader("📊 Perbandingan Histogram Warna (RGB)")
-                # Ambil array RGB
-                arr1_rgb = np.array(im1_res) / 255.0
-                arr2_rgb = np.array(im2_res) / 255.0
-                fig, axes = plt.subplots(1, 3, figsize=(12, 4))
-                colors = ('red', 'green', 'blue')
-                for i, (ax, color) in enumerate(zip(axes, colors)):
-                    ax.hist(arr1_rgb[:, :, i].ravel(), bins=50, alpha=0.5, color=color, label='Gambar 1')
-                    ax.hist(arr2_rgb[:, :, i].ravel(), bins=50, alpha=0.5, color='gray', label='Gambar 2')
-                    ax.set_title(f'Channel {color.capitalize()}')
-                    ax.legend()
-                plt.tight_layout()
-                st.pyplot(fig)
-                plt.close(fig)
-
-                # Penjelasan
-                st.markdown("""
-                <div class="info-box">
-                    <b>💡 Interpretasi Skor:</b><br>
-                    • <b>SSIM</b> – mendekati 1 berarti struktur gambar sangat mirip.<br>
-                    • <b>PSNR</b> – > 40 dB menunjukkan kualitas sangat baik, > 30 dB baik.<br>
-                    • <b>Cosine Similarity</b> – mendekati 1 berarti arah vektor piksel sangat searah (mirip).<br>
-                    • <b>MSE</b> – semakin kecil semakin mirip (0 berarti identik).<br>
-                    <b>Kesimpulan akhir</b> ditentukan oleh threshold SSIM dan Cosine yang Anda atur.
-                </div>
-                """, unsafe_allow_html=True)
+                kolom_graf, kolom_exp = st.columns([1, 1])
+                with kolom_graf:
+                    st.subheader("Grafik Akumulasi Informasi PCA (Data Latih)")
+                    varians = np.cumsum(pca_model.explained_variance_ratio_)
+                    fig, ax = plt.subplots(figsize=(5, 3.5))
+                    ax.plot(range(1, len(varians)+1), varians, 'bo-', linewidth=2, markersize=5)
+                    ax.axhline(y=0.95, color='red', linestyle='--', linewidth=2, label='95% Varians')
+                    ax.axhline(y=ambang, color='green', linestyle=':', linewidth=2, label=f'Threshold {ambang:.2f}')
+                    ax.set_xlabel('Jumlah Komponen PCA (k)', fontsize=10)
+                    ax.set_ylabel('Akumulasi Informasi', fontsize=10)
+                    ax.set_title('Kurva Akumulasi Informasi PCA', fontsize=11)
+                    ax.grid(True, alpha=0.3)
+                    ax.legend(loc='lower right', fontsize=8)
+                    ax.set_ylim(0, 1.05)
+                    st.pyplot(fig)
+                with kolom_exp:
+                    st.subheader("Penjelasan Hasil")
+                    st.markdown(f"""
+                    <div class="explanation-box">
+                    <b>Skor kemiripan:</b> {kemiripan:.2%} (Cosine Similarity di ruang PCA).<br>
+                    <b>Ambang batas:</b> {ambang:.0%} – jika skor ≥ ambang, dianggap <b>MIRIP</b>.<br>
+                    <b>Komponen PCA:</b> {pca_model.n_components_} dari {len(train_vectors)} sampel latih.<br>
+                    <b>Total varians dipertahankan:</b> {var_ratio:.1f}%.<br><br>
+                    <b>💡 Interpretasi:</b><br>
+                    • Skor > 0.7 biasanya menunjukkan wajah yang sangat mirip (orang yang sama).<br>
+                    • Skor 0.5–0.7 menunjukkan kemiripan sedang (mungkin orang berbeda dengan fitur mirip).<br>
+                    • Skor < 0.5 menunjukkan dua orang yang berbeda secara signifikan.
+                    </div>
+                    """, unsafe_allow_html=True)
 
                 st.balloons()
 
             except Exception as e:
                 st.error(f"Terjadi kesalahan: {e}")
+                st.exception(e)
     else:
         st.markdown("""
         <div style="text-align:center; padding:2rem 0;">
-            <p style="font-size:1.2rem; color:#6A1B4D;">👆 Upload dua gambar untuk membandingkan kemiripannya.</p>
+            <p style="font-size:1.2rem; color:#6A1B4D;">👆 Upload dua foto wajah untuk membandingkan.</p>
         </div>
         """, unsafe_allow_html=True)
